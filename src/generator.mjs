@@ -34,6 +34,8 @@ import {
   getRecentHelpfulUrls,
   getRecentNotHelpfulUrls,
   getUserTopics,
+  getCachedDigest,
+  setCachedDigest,
 } from './db.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -332,20 +334,46 @@ async function generateForUser(db, userId, userName, type, dryRun) {
 
   const userContent = `Generate a ${type} digest from the following ${items.length} items:\n\n${formatItemsForLlm(items)}`;
 
+  const subHash = subscriptionHash(sourceIds);
+
   if (dryRun) {
     console.log(`  [dry-run] Would send ${userContent.length} chars to LLM`);
-    console.log(`  [dry-run] Sources: ${sourceIds.join(', ')}`);
-    return { userId, items: items.length, sources: sourceIds.length };
+    console.log(`  [dry-run] Sources: ${sourceIds.join(', ')} hash: ${subHash}`);
+    return { userId, items: items.length, sources: sourceIds.length, hash: subHash };
   }
 
-  const content = await callLlm(systemPrompt, userContent);
-  const subHash = subscriptionHash(sourceIds);
+  // ── Cache check (#45) ──
+  const intervalHours = TYPE_INTERVALS[type] || 4;
+  // Only use cache for users without personalized preferences (preference context is empty)
+  const canUseCache = !prefContext.trim();
+  let content;
+  let cacheHit = false;
+  if (canUseCache) {
+    const cached = getCachedDigest(db, subHash, type, intervalHours);
+    if (cached) {
+      content = cached.content;
+      cacheHit = true;
+      console.log(`  [cache] ${userName || userId}: cache hit hash=${subHash} (saves 1 LLM call)`);
+    }
+  }
+
+  if (!content) {
+    content = await callLlm(systemPrompt, userContent);
+    // Store in cache for sharing with same-subscription users
+    if (canUseCache) {
+      try {
+        setCachedDigest(db, { hash: subHash, type, content, itemCount: items.length, sourceCount: sourceIds.length, model: LLM_MODEL });
+      } catch {}
+    }
+  }
+
   const metadata = JSON.stringify({
     source_count: sourceIds.length,
     item_count: items.length,
     dedup_removed: dedupCount,
     subscription_hash: subHash,
     model: LLM_MODEL,
+    cache_hit: cacheHit,
   });
 
   const result = createDigest(db, { type, content, metadata, user_id: userId });

@@ -169,6 +169,17 @@ export function getDb(dbPath) {
   } catch (e) {
     if (!e.message.includes('duplicate column') && !e.message.includes('already exists')) console.error('Migration 015:', e.message);
   }
+  // Migration 016: agent API (digest cache + webhooks + api keys)
+  try {
+    const sql16 = readFileSync(join(ROOT, 'migrations', '016_agent_api.sql'), 'utf8');
+    for (const stmt of sql16.split(';').map(s => s.trim()).filter(Boolean)) {
+      try { _db.exec(stmt + ';'); } catch (e) {
+        if (!e.message.includes('already exists')) throw e;
+      }
+    }
+  } catch (e) {
+    if (!e.message.includes('already exists')) console.error('Migration 016:', e.message);
+  }
   // Backfill slugs for existing users
   _backfillSlugs(_db);
   return _db;
@@ -923,6 +934,123 @@ export function getUserTopics(db, userId) {
 }
 
 // ── Weighted item query for digest ──
+
+// ── Digest Cache (#45) ──
+
+export function getCachedDigest(db, hash, type, maxAgeHours = 4) {
+  return db.prepare(
+    `SELECT * FROM digest_cache WHERE hash = ? AND type = ?
+     AND created_at >= datetime('now', '-' || ? || ' hours')
+     ORDER BY created_at DESC LIMIT 1`
+  ).get(hash, type, maxAgeHours);
+}
+
+export function setCachedDigest(db, { hash, type, content, itemCount = 0, sourceCount = 0, model = null }) {
+  return db.prepare(
+    `INSERT OR REPLACE INTO digest_cache (hash, type, content, item_count, source_count, model, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, datetime('now'))`
+  ).run(hash, type, content, itemCount, sourceCount, model);
+}
+
+export function invalidateCacheForHash(db, hash) {
+  return db.prepare("DELETE FROM digest_cache WHERE hash = ?").run(hash);
+}
+
+// ── Webhooks (#42) ──
+
+export function createWebhook(db, { userId, url, secret, events }) {
+  const eventsJson = Array.isArray(events) ? JSON.stringify(events) : events;
+  const result = db.prepare(
+    'INSERT INTO webhooks (user_id, url, secret, events) VALUES (?, ?, ?, ?)'
+  ).run(userId, url, secret, eventsJson);
+  return { id: result.lastInsertRowid };
+}
+
+export function listWebhooks(db, userId) {
+  return db.prepare('SELECT id, url, events, is_active, created_at, last_triggered_at, failure_count FROM webhooks WHERE user_id = ?').all(userId);
+}
+
+export function getWebhook(db, id, userId) {
+  return db.prepare('SELECT * FROM webhooks WHERE id = ? AND user_id = ?').get(id, userId);
+}
+
+export function updateWebhook(db, id, userId, patch) {
+  const allowed = ['url', 'events', 'is_active'];
+  const sets = [];
+  const params = [];
+  for (const [k, v] of Object.entries(patch)) {
+    if (allowed.includes(k)) {
+      sets.push(`${k} = ?`);
+      params.push(k === 'events' && Array.isArray(v) ? JSON.stringify(v) : v);
+    }
+  }
+  if (!sets.length) return { changes: 0 };
+  params.push(id, userId);
+  return db.prepare(`UPDATE webhooks SET ${sets.join(', ')} WHERE id = ? AND user_id = ?`).run(...params);
+}
+
+export function deleteWebhook(db, id, userId) {
+  return db.prepare('DELETE FROM webhooks WHERE id = ? AND user_id = ?').run(id, userId);
+}
+
+export function getActiveWebhooksForEvent(db, event) {
+  return db.prepare(`
+    SELECT w.*, u.email as user_email FROM webhooks w
+    LEFT JOIN users u ON w.user_id = u.id
+    WHERE w.is_active = 1 AND w.failure_count < 5
+    AND EXISTS (
+      SELECT 1 FROM json_each(w.events) WHERE json_each.value = ? OR json_each.value = '*'
+    )
+  `).all(event);
+}
+
+export function logWebhookDelivery(db, webhookId, event, payload, status, responseBody, error) {
+  const now = status ? "datetime('now')" : null;
+  if (status) {
+    db.prepare(
+      `INSERT INTO webhook_deliveries (webhook_id, event, payload, status, response_body, delivered_at)
+       VALUES (?, ?, ?, ?, ?, datetime('now'))`
+    ).run(webhookId, event, typeof payload === 'string' ? payload : JSON.stringify(payload), status, responseBody || null);
+    db.prepare("UPDATE webhooks SET last_triggered_at = datetime('now'), failure_count = 0 WHERE id = ?").run(webhookId);
+  } else {
+    db.prepare(
+      `INSERT INTO webhook_deliveries (webhook_id, event, payload, error)
+       VALUES (?, ?, ?, ?)`
+    ).run(webhookId, event, typeof payload === 'string' ? payload : JSON.stringify(payload), error || 'unknown error');
+    db.prepare('UPDATE webhooks SET failure_count = failure_count + 1 WHERE id = ?').run(webhookId);
+  }
+}
+
+// ── API Keys (#42) ──
+
+export function createApiKey(db, { userId, keyHash, keyPrefix, name, scopes }) {
+  const scopesJson = Array.isArray(scopes) ? JSON.stringify(scopes) : scopes || '["read"]';
+  const result = db.prepare(
+    'INSERT INTO api_keys (user_id, key_hash, key_prefix, name, scopes) VALUES (?, ?, ?, ?, ?)'
+  ).run(userId, keyHash, keyPrefix, name || null, scopesJson);
+  return { id: result.lastInsertRowid };
+}
+
+export function getApiKeyByHash(db, keyHash) {
+  return db.prepare(`
+    SELECT ak.*, u.id as uid, u.email, u.name as user_name, u.slug
+    FROM api_keys ak JOIN users u ON ak.user_id = u.id
+    WHERE ak.key_hash = ? AND ak.is_active = 1
+    AND (ak.expires_at IS NULL OR ak.expires_at > datetime('now'))
+  `).get(keyHash);
+}
+
+export function listApiKeys(db, userId) {
+  return db.prepare('SELECT id, key_prefix, name, scopes, is_active, created_at, last_used_at FROM api_keys WHERE user_id = ?').all(userId);
+}
+
+export function revokeApiKey(db, id, userId) {
+  return db.prepare('UPDATE api_keys SET is_active = 0 WHERE id = ? AND user_id = ?').run(id, userId);
+}
+
+export function touchApiKeyUsed(db, id) {
+  return db.prepare("UPDATE api_keys SET last_used_at = datetime('now') WHERE id = ?").run(id);
+}
 
 export function listRawItemsForDigestWeighted(db, userId, sourceIds, { since, limit = 500 } = {}) {
   if (!sourceIds.length) return [];
