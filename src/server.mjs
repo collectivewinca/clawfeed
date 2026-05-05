@@ -204,10 +204,10 @@ function attachUser(req) {
 
 function _digestTitle(d, ca) {
   const dt = new Date(ca.includes('+') ? ca : ca.replace(' ', 'T') + 'Z');
-  const timeStr = dt.toLocaleString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
+  const timeStr = dt.toISOString().replace('T', ' ').slice(0, 16);
   const icons = { '4h': '☀️', daily: '📰', weekly: '📅', monthly: '📊' };
   const labels = { '4h': 'Sliver 4H', daily: 'Sliver Daily', weekly: 'Sliver Weekly', monthly: 'Sliver Monthly' };
-  return `${icons[d.type] || '📝'} ${labels[d.type] || 'Sliver'} | ${timeStr}`;
+  return `${icons[d.type] || '📝'} ${labels[d.type] || 'Sliver'} | ${timeStr} UTC`;
 }
 
 // ── Source URL resolver ──
