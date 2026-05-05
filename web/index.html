@@ -58,18 +58,6 @@ body.light .theme-toggle:hover { border-color: #999; color: #333; }
   .subtitle .agent-name:hover { opacity: 0.85; }
   .subtitle .agent-name.sliver { background: linear-gradient(135deg, #3498db, #2980b9); color: #fff; }
   body.light .subtitle .agent-name.sliver { background: linear-gradient(135deg, #3b82f6, #2563eb); }
-  /* Changelog modal */
-  .changelog-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:9999; overflow-y:auto; display:none; }
-  .changelog-overlay.open { display:flex; justify-content:center; }
-  .changelog-inner { max-width:750px; width:100%; padding:40px 24px 60px; color:#e0e0e0; position:relative; }
-  .changelog-close { position:fixed; top:16px; right:24px; font-size:28px; color:#888; cursor:pointer; z-index:10000; background:none; border:none; }
-  .changelog-close:hover { color:#fff; }
-  .changelog-inner h1 { font-size:2em; margin-bottom:24px; color:#fff; }
-  .changelog-inner h2 { font-size:1.4em; margin:32px 0 8px; color:#6cf; border-bottom:1px solid #333; padding-bottom:8px; }
-  .changelog-inner h3 { font-size:1.1em; margin:16px 0 8px; color:#ccc; }
-  .changelog-inner ul { margin:0 0 8px 20px; }
-  .changelog-inner li { margin:4px 0; line-height:1.6; color:#bbb; }
-  .changelog-inner code { background:#1a1a2e; padding:2px 6px; border-radius:3px; font-size:0.9em; color:#6cf; }
   .tabs { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
   .tab { padding: 8px 16px; border-radius: 8px; background: #1a1a1a; border: 1px solid #333; cursor: pointer; color: #aaa; font-size: 14px; transition: all 0.2s; }
   .tab:hover { border-color: #555; color: #fff; }
@@ -225,10 +213,6 @@ body.light .skeleton-card { background: #fff; }
   <div id="viewer" class="digest-viewer"></div>
 </div>
 <div class="toast" id="toast"></div>
-<div class="changelog-overlay" id="changelogOverlay">
-  <button class="changelog-close" onclick="hideChangelog()">✕</button>
-  <div class="changelog-inner" id="changelogContent"></div>
-</div>
 
 <script>
 window.onerror = function(msg, src, line) {
@@ -300,7 +284,6 @@ const I18N = {
     pasteUrl: '🔗 Paste URL to add source', detect: 'Detect', detecting: 'Detecting...', detected: 'Detected', previewRecent: 'Recent items',
     cannotDetect: 'Cannot auto-detect. ', manualAdd: 'Manual add', confirmAdd: 'Confirm',
     urlPlaceholder: 'https://...', publicSource: 'Public',
-    changelog: 'Changelog', roadmap: 'Roadmap',
     sharePack: '📦 Share as Pack', browsePacks: '🔍 Browse Packs',
     packName: 'Pack Name', packDesc: 'Description (optional)',
     createPack: 'Create Pack', packCreated: '✅ Pack created!',
@@ -329,7 +312,6 @@ function applyLang() {
   document.querySelector('h1').textContent = t('title');
   document.getElementById('subtitleText').innerHTML = t('subtitle');
   const ib = document.getElementById('infoBanner'); if (ib) ib.innerHTML = t('infoBanner');
-  const cl = document.getElementById('changelogLink'); if (cl) cl.textContent = t('changelog');
   document.querySelector('[data-type="4h"]').textContent = t('tab4h');
   document.querySelector('[data-type="daily"]').textContent = t('tabDaily');
   document.querySelector('[data-type="weekly"]').textContent = t('tabWeekly');
@@ -339,58 +321,6 @@ function applyLang() {
   if (banner) banner.querySelector('span').textContent = t('loginBanner');
   renderAuthBar();
 }
-
-// ── Changelog ──
-function parseChangelogMd(md) {
-  return md.split('\n').map(line => {
-    // headers
-    if (line.startsWith('### ')) return `<h3>${esc(line.slice(4))}</h3>`;
-    if (line.startsWith('## ')) return `<h2>${esc(line.slice(3))}</h2>`;
-    if (line.startsWith('# ')) return `<h1>${esc(line.slice(2))}</h1>`;
-    // list items with bold and code
-    if (line.startsWith('- ')) {
-      let content = esc(line.slice(2));
-      content = content.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-      content = content.replace(/`([^`]+)`/g, '<code>$1</code>');
-      return `<li>${content}</li>`;
-    }
-    if (line.trim() === '') return '';
-    return `<p>${esc(line)}</p>`;
-  }).join('\n')
-    .replace(/(<li>)/g, m => m) // wrap consecutive li in ul
-    .replace(/((?:<li>.*<\/li>\n?)+)/g, '<ul>$1</ul>');
-}
-function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-
-async function showChangelog() {
-  const overlay = document.getElementById('changelogOverlay');
-  const content = document.getElementById('changelogContent');
-  content.innerHTML = '<p style="text-align:center;padding:40px;">⏳</p>';
-  overlay.classList.add('open');
-  document.body.style.overflow = 'hidden';
-  try {
-    const r = await fetch(`${API}/changelog?lang=${lang}`);
-    const d = await r.json();
-    content.innerHTML = parseChangelogMd(d.content);
-  } catch { content.innerHTML = '<p>Failed to load changelog.</p>'; }
-}
-function hideChangelog() {
-  document.getElementById('changelogOverlay').classList.remove('open');
-  document.body.style.overflow = '';
-}
-async function showRoadmap() {
-  const overlay = document.getElementById('changelogOverlay');
-  const content = document.getElementById('changelogContent');
-  overlay.classList.add('open');
-  document.body.style.overflow = 'hidden';
-  content.innerHTML = '<p>Loading...</p>';
-  try {
-    const r = await fetch(`${API}/roadmap?lang=${lang}`);
-    const d = await r.json();
-    content.innerHTML = parseChangelogMd(d.content);
-  } catch { content.innerHTML = '<p>Failed to load roadmap.</p>'; }
-}
-document.addEventListener('keydown', e => { if (e.key === 'Escape') hideChangelog(); });
 
 // API base — auto-detect: if served under /digest/, use /digest/api; otherwise /api
 const API = (() => {
@@ -433,9 +363,7 @@ function renderAuthBar() {
   const moreMenu = `<div class="user-menu" onclick="document.getElementById('moreDropdown').classList.toggle('show')">
     <span style="cursor:pointer;font-size:14px;color:#666;transition:color .2s;padding:2px 4px;" onmouseover="this.style.color='#ccc'" onmouseout="this.style.color='#666'">⋯</span>
     <div id="moreDropdown" class="user-dropdown">
-
-      <a href="#" onclick="event.stopPropagation();showChangelog();return false;">📋 ${t('changelog')}</a>
-      <a href="#" onclick="event.stopPropagation();showRoadmap();return false;">🗺️ ${t('roadmap')}</a>
+      <a href="https://sliver.network/" target="_blank" onclick="event.stopPropagation();">🌐 Sliver Network</a>
     </div>
   </div>`;
   if (currentUser) {
