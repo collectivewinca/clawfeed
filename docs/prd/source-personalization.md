@@ -2,7 +2,7 @@
 
 ## 背景
 
-ClawFeed 目前的 digest 生成是全局的——所有用户看到同一份 digest。虽然已有 sources 表和 user_subscriptions 表（PR #5 已合并），但缺少中间层来存储采集到的原始内容。没有这一层，无法实现"每个用户基于自己订阅的 sources 生成个性化 digest"。
+Sliver 目前的 digest 生成是全局的——所有用户看到同一份 digest。虽然已有 sources 表和 user_subscriptions 表（PR #5 已合并），但缺少中间层来存储采集到的原始内容。没有这一层，无法实现"每个用户基于自己订阅的 sources 生成个性化 digest"。
 
 PR #6（已关闭）曾提交了完整的采集管道实现，但未经 PRD 审核流程。本 PRD 正式定义需求和技术方案。
 
@@ -180,7 +180,7 @@ Twitter 是用户最高频的信息源之一，需尽可能支持。目标场景
 
 - **SSRF 防护**：DNS 解析后检查 IP，拒绝私有地址（127.x, 10.x, 172.16-31.x, 192.168.x, fc/fd IPv6）
 - **请求限制**：10s 超时，500KB 最大响应体，最多 3 次重定向
-- **User-Agent**：`ClawFeed-Collector/1.0`
+- **User-Agent**：`Sliver-Collector/1.0`
 
 ### API 端点
 
@@ -273,7 +273,7 @@ Collector 作为独立进程运行，不阻塞 API 服务。生产环境用 PM2 
 
 - **Phase 2**：digest 生成接入 raw_items（按用户订阅过滤 → AI 摘要 → 写入 digest + user_id）
 - **Phase 3**：订阅组合去重（subscription_hash 缓存，相同订阅组合共享 digest）
-- **Phase 4**：Twitter 源支持、多渠道分发（Telegram/Email/Slack）
+- **Phase 4**：Twitter 源支持、多渠道分发（channel/Email/Slack）
 
 ## 回滚方案
 

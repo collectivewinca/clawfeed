@@ -1,14 +1,11 @@
-# ClawFeed
+# Sliver Feed
 
 > **Stop scrolling. Start knowing.**
 
-[![ClawHub](https://img.shields.io/badge/ClawHub-clawfeed-blue)](https://clawhub.ai/skills/clawfeed)
-[![GitHub](https://img.shields.io/github/v/tag/kevinho/clawfeed?label=version)](https://github.com/kevinho/clawfeed)
+[![GitHub](https://img.shields.io/github/v/tag/collectivewinca/sliver?label=version)](https://github.com/collectivewinca/sliver)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-[Live Demo: https://clawfeed.kevinhe.io](https://clawfeed.kevinhe.io)
-
-AI-powered news digest that curates thousands of sources down to the highlights that matter. Generates structured summaries (4H/daily/weekly/monthly) from Twitter, RSS, and more. Works standalone or as an [OpenClaw](https://github.com/openclaw/openclaw) / [Zylos](https://github.com/zylos-ai) skill.
+AI-powered news digest that curates thousands of sources down to the highlights that matter. Generates structured summaries (4H/daily/weekly/monthly) from Twitter, RSS, and more. 
 
 ![Dashboard](docs/demo.gif)
 
@@ -21,61 +18,37 @@ AI-powered news digest that curates thousands of sources down to the highlights 
 - 🎯 **Smart curation** — Configurable rules for content filtering and noise reduction
 - 👀 **Follow/Unfollow suggestions** — Based on feed quality analysis
 - 📢 **Feed output** — Subscribe to any user's digest via RSS or JSON Feed
-- 🌐 **Multi-language** — English and Chinese UI
+- 🌐 **Clean UI** — Minimalist, English-focused web dashboard
 - 🌙 **Dark/Light mode** — Theme toggle with localStorage persistence
 - 🖥️ **Web dashboard** — SPA for browsing and managing digests
 - 💾 **SQLite storage** — Fast, portable, zero-config database
 - 🔐 **Google OAuth** — Multi-user support with personal bookmarks and sources
 
-## Installation
-
-### Option 1: ClawHub (recommended)
+### Installation
 
 ```bash
-clawhub install clawfeed
-```
-
-### Option 2: OpenClaw Skill
-
-```bash
-cd ~/.openclaw/skills/
-git clone https://github.com/kevinho/clawfeed.git
-```
-
-OpenClaw auto-detects `SKILL.md` and loads the skill. The agent can then generate digests via cron, serve the dashboard, and handle bookmark commands.
-
-### Option 3: Zylos Skill
-
-```bash
-cd ~/.zylos/skills/
-git clone https://github.com/kevinho/clawfeed.git
-```
-
-### Option 4: Standalone
-
-```bash
-git clone https://github.com/kevinho/clawfeed.git
-cd clawfeed
+git clone https://github.com/collectivewinca/sliver.git
+cd sliver-feed
 npm install
 ```
 
 ### Option 5: Docker
 ```bash
 # Basic usage
-docker run -d -p 8767:8767 kevinho/clawfeed
+docker run -d -p 8767:8767 collectivewinca/sliver
 
 # With persistent data
-docker run -d -p 8767:8767 -v clawfeed-data:/app/data kevinho/clawfeed
+docker run -d -p 8767:8767 -v sliver-feed-data:/app/data collectivewinca/sliver
 
 # With environment variables (recommended for production)
 docker run -d -p 8767:8767 \
-  -v clawfeed-data:/app/data \
+  -v sliver-feed-data:/app/data \
   -e ALLOWED_ORIGINS=https://yourdomain.com \
   -e API_KEY=your-api-key \
   -e GOOGLE_CLIENT_ID=your-client-id \
   -e GOOGLE_CLIENT_SECRET=your-client-secret \
   -e SESSION_SECRET=your-session-secret \
-  kevinho/clawfeed
+  collectivewinca/sliver
 ```
 
 ## Quick Start
@@ -190,7 +163,7 @@ handle /digest/api/* {
     reverse_proxy localhost:8767
 }
 handle_path /digest/* {
-    root * /path/to/clawfeed/web
+    root * /path/to/sliver-feed/web
     file_server
 }
 ```
@@ -211,7 +184,7 @@ handle_path /digest/* {
 | `reddit` | `/r/MachineLearning` | Subreddit |
 | `github_trending` | `language=python` | GitHub trending repos |
 | `website` | Any URL | Website scraping |
-| `digest_feed` | ClawFeed user slug | Another user's digest |
+| `digest_feed` | Sliver user slug | Another user's digest |
 | `custom_api` | JSON endpoint | Custom API |
 
 ## Development
@@ -249,4 +222,4 @@ See [ROADMAP.md](ROADMAP.md) or the in-app roadmap page.
 
 MIT License — see [LICENSE](LICENSE) for details.
 
-Copyright 2026 Kevin He
+Copyright 2026 VE LAB

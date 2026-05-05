@@ -2,11 +2,11 @@
 
 ## v0.8.1 — 2026-02-24
 ### ✨ New
-- **Telegram group link in info banner** — Clickable TG icon + group invite link with i18n support (#16)
+- **Improved info banner** — Support for custom messages and i18n (#16)
 - **DEVOPLOG.md** — R&D lifecycle tracking for staging/production changes (#20)
 
 ### 🔧 Fixed
-- **TG icon rendering** — Replace emoji with proper SVG icon, make TG group link clickable (#17)
+- **Icon rendering** — Improved SVG icon support (#17)
 - **Subtitle Twitter links** — @mentions in subtitle now link to Twitter profiles (#18)
 - **ClawHub metadata alignment** — SKILL.md credentials declared, TESTING.md HttpOnly note, README/SKILL.md consistency (#25)
 
@@ -81,6 +81,6 @@
 
 ## v0.1.0 — 2026-02-21
 ### ✨ New
-- **Initial release** — ClawFeed with web dashboard, Google OAuth, SQLite storage
+- **Initial release** — Sliver with web dashboard, Google OAuth, SQLite storage
 - **4H cron** — Every 4 hours digest from Twitter For You feed
 - **Daily/Weekly/Monthly** — Recursive summarization pipeline

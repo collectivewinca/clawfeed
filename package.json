@@ -1,7 +1,7 @@
 {
-  "name": "clawfeed",
+  "name": "sliver-feed",
   "version": "0.8.1",
-  "description": "AI-powered news digest tool \u2014 generates structured summaries from Twitter/RSS feeds",
+  "description": "Sliver Feed — AI-powered news digest engine with structured summaries and web dashboard",
   "type": "module",
   "scripts": {
     "start": "node src/server.mjs",
@@ -16,7 +16,7 @@
     "ai",
     "digest",
     "news",
-    "openclaw",
+    "sliver",
     "skill"
   ],
   "license": "MIT",

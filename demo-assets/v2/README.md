@@ -1,9 +1,9 @@
-# ClawFeed Demo Video v2 — 素材清单
+# Sliver Demo Video v2 — 素材清单
 
 ## ✅ 成品
-- `clawfeed-demo-v2.mp4` — 29s 静态帧合成版（1920x1080, 1.6MB）
+- `sliver-feed-demo-v2.mp4` — 29s 静态帧合成版（1920x1080, 1.6MB）
 - `subtitles.srt` — 字幕文件
-- 在线预览: https://lisa.kevinhe.io/research/clawfeed-demo/
+- 在线预览: https://lisa.kevinhe.io/research/sliver-feed-demo/
 
 ## 截图素材
 - `01-homepage-briefs.jpg` — 首页 4H 简报列表

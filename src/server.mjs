@@ -8,21 +8,14 @@ import { randomBytes, createHmac, timingSafeEqual } from 'crypto';
 import { lookup } from 'dns/promises';
 import { isIP } from 'net';
 import { getDb, listDigests, getDigest, createDigest, listMarks, createMark, deleteMark, getConfig, setConfig, upsertUser, createSession, getSession, deleteSession, listSources, getSource, createSource, updateSource, deleteSource, getSourceByTypeConfig, getUserBySlug, listDigestsByUser, countDigestsByUser, createPack, getPack, getPackBySlug, listPacks, incrementPackInstall, deletePack, listSubscriptions, subscribe, unsubscribe, bulkSubscribe, isSubscribed, createFeedback, getUserFeedback, getAllFeedback, replyToFeedback, updateFeedbackStatus, markFeedbackRead, getUnreadFeedbackCount } from './db.mjs';
+import { getEnv } from './utils/env.mjs';
+import { validateString, validateNumber, validateBoolean } from './utils/validation.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
 
-// ── Load .env ──
-const envPath = join(ROOT, '.env');
-const env = {};
-if (existsSync(envPath)) {
-  for (const line of readFileSync(envPath, 'utf8').split('\n')) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith('#')) continue;
-    const eq = trimmed.indexOf('=');
-    if (eq > 0) env[trimmed.slice(0, eq)] = trimmed.slice(eq + 1);
-  }
-}
+// Load shared environment
+const env = getEnv();
 
 const GOOGLE_CLIENT_ID = env.GOOGLE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = env.GOOGLE_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET;
@@ -37,8 +30,14 @@ const DB_PATH = process.env.DIGEST_DB || join(ROOT, 'data', 'digest.db');
 mkdirSync(join(ROOT, 'data'), { recursive: true });
 const db = getDb(DB_PATH);
 
-function json(res, data, status = 200) {
-  res.writeHead(status, { 'Content-Type': 'application/json' });
+function json(res, data, status = 200, cacheMaxAge = 0) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (cacheMaxAge > 0) {
+    headers['Cache-Control'] = `public, max-age=${cacheMaxAge}`;
+  } else {
+    headers['Cache-Control'] = 'no-cache, no-store, must-revalidate';
+  }
+  res.writeHead(status, headers);
   res.end(JSON.stringify(data));
 }
 
@@ -207,8 +206,8 @@ function _digestTitle(d, ca) {
   const dt = new Date(ca.includes('+') ? ca : ca.replace(' ', 'T') + '+08:00');
   const timeStr = dt.toLocaleString('en-SG', { timeZone: 'Asia/Singapore', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
   const icons = { '4h': '☀️', daily: '📰', weekly: '📅', monthly: '📊' };
-  const labels = { '4h': 'AI 简报', daily: 'AI 日报', weekly: 'AI 周报', monthly: 'AI 月报' };
-  return `${icons[d.type] || '📝'} ${labels[d.type] || 'ClawFeed'} | ${timeStr} SGT`;
+  const labels = { '4h': 'Sliver 4H', daily: 'Sliver Daily', weekly: 'Sliver Weekly', monthly: 'Sliver Monthly' };
+  return `${icons[d.type] || '📝'} ${labels[d.type] || 'Sliver'} | ${timeStr} SGT`;
 }
 
 // ── Source URL resolver ──
@@ -349,13 +348,13 @@ const server = createServer(async (req, res) => {
     const since = params.get('since') || undefined;
     const digests = listDigestsByUser(db, user.id, { type, limit, since });
     const total = countDigestsByUser(db, user.id, { type });
-    const BASE = 'https://clawfeed.kevinhe.io';
+    const BASE = 'https://github.com/collectivewinca/sliver';
 
     if (format === 'json') {
       // JSON Feed 1.1
       const feed = {
         version: 'https://jsonfeed.org/version/1.1',
-        title: `${user.name}'s ClawFeed`,
+        title: `${user.name}'s Sliver`,
         home_page_url: BASE,
         feed_url: `${BASE}/feed/${slug}.json`,
         items: digests.map(d => {
@@ -386,7 +385,7 @@ const server = createServer(async (req, res) => {
         const title = _digestTitle(d, ca);
         items += `<item><title>${escXml(title)}</title><link>${BASE}/#digest-${d.id}</link><guid isPermaLink="false">${d.id}</guid><pubDate>${dt.toUTCString()}</pubDate><description>${escXml(d.content.slice(0, 2000))}</description></item>\n`;
       }
-      const rss = `<?xml version="1.0" encoding="UTF-8"?>\n<rss version="2.0"><channel><title>${escXml(user.name)}'s ClawFeed</title><link>${BASE}</link><description>ClawFeed Feed</description>\n${items}</channel></rss>`;
+      const rss = `<?xml version="1.0" encoding="UTF-8"?>\n<rss version="2.0"><channel><title>${escXml(user.name)}'s Sliver</title><link>${BASE}</link><description>Sliver Feed</description>\n${items}</channel></rss>`;
       res.writeHead(200, { 'Content-Type': 'application/rss+xml; charset=utf-8' });
       res.end(rss);
       return;
@@ -514,17 +513,22 @@ const server = createServer(async (req, res) => {
     // ── Digest endpoints (public) ──
 
     if (req.method === 'GET' && path === '/api/digests') {
-      const type = params.get('type') || undefined;
-      const limit = parseInt(params.get('limit') || '20');
-      const offset = parseInt(params.get('offset') || '0');
-      return json(res, listDigests(db, { type, limit, offset }));
+      const typeParam = params.get('type');
+      // Validate type if provided
+      const type = typeParam ? validateString(typeParam, 'type', { pattern: /^(4h|daily|weekly|monthly)$/i }) : undefined;
+      // Validate and bounds-check pagination
+      const limit = validateNumber(params.get('limit') || '20', 'limit', { min: 1, max: 50 });
+      const offset = validateNumber(params.get('offset') || '0', 'offset', { min: 0, max: 10000 });
+      // Cache for 60 seconds for list endpoints
+      return json(res, listDigests(db, { type, limit, offset }), 200, 60);
     }
 
     const digestMatch = path.match(/^\/api\/digests\/(\d+)$/);
     if (req.method === 'GET' && digestMatch) {
       const d = getDigest(db, parseInt(digestMatch[1]));
       if (!d) return json(res, { error: 'not found' }, 404);
-      return json(res, d);
+      // Cache single digest for 5 minutes
+      return json(res, d, 200, 300);
     }
 
     if (req.method === 'POST' && path === '/api/digests') {
@@ -532,7 +536,10 @@ const server = createServer(async (req, res) => {
       const bearerKey = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
       if (!API_KEY || bearerKey !== API_KEY) return json(res, { error: 'invalid api key' }, 401);
       const body = await parseBody(req);
-      const result = createDigest(db, body);
+      // Validate required fields
+      const type = validateString(body.type, 'type', { required: true, pattern: /^(4h|daily|weekly|monthly)$/i });
+      const content = validateString(body.content, 'content', { required: true, minLength: 1 });
+      const result = createDigest(db, { type, content, metadata: body.metadata || '{}' });
       return json(res, result, 201);
     }
 
@@ -636,7 +643,8 @@ const server = createServer(async (req, res) => {
         const subs = new Set(listSubscriptions(db, req.user.id).map(s => s.id));
         return json(res, sources.map(s => ({ ...s, subscribed: subs.has(s.id) })));
       } else {
-        return json(res, listSources(db, { includePublic: true }));
+        // Cache public sources for 30 seconds
+        return json(res, listSources(db, { includePublic: true }), 200, 30);
       }
     }
 
@@ -653,7 +661,12 @@ const server = createServer(async (req, res) => {
     if (req.method === 'POST' && path === '/api/sources') {
       if (!req.user) return json(res, { error: 'login required' }, 401);
       const body = await parseBody(req);
-      const result = createSource(db, { ...body, createdBy: req.user.id });
+      // Validate required fields
+      const name = validateString(body.name, 'name', { required: true, minLength: 1, maxLength: 200 });
+      const type = validateString(body.type, 'type', { required: true, maxLength: 50 });
+      const config = typeof body.config === 'string' ? body.config : JSON.stringify(body.config || {});
+      const isPublic = validateBoolean(body.isPublic, 'isPublic');
+      const result = createSource(db, { name, type, config, isPublic: isPublic ? 1 : 0, createdBy: req.user.id });
       return json(res, result, 201);
     }
 
@@ -760,7 +773,7 @@ const server = createServer(async (req, res) => {
       if (LARK_WEBHOOK) {
         const userName = req.user?.name || body.name || 'Anonymous';
         const userEmail = req.user?.email || body.email || '';
-        const notifBody = JSON.stringify({ msg_type: 'text', content: { text: `📨 新反馈 #${id}\n👤 ${userName}${userEmail ? ' (' + userEmail + ')' : ''}\n💬 "${body.message.trim().slice(0, 200)}"\n🕐 ${new Date().toISOString().slice(0, 19).replace('T', ' ')}` } });
+        const notifBody = JSON.stringify({ msg_type: 'text', content: { text: `📨 New Feedback #${id}\n👤 ${userName}${userEmail ? ' (' + userEmail + ')' : ''}\n💬 "${body.message.trim().slice(0, 200)}"\n🕐 ${new Date().toISOString().slice(0, 19).replace('T', ' ')}` } });
         try {
           const u = new URL(LARK_WEBHOOK);
           const mod = u.protocol === 'https:' ? https : http;
@@ -865,6 +878,6 @@ const server = createServer(async (req, res) => {
 });
 
 const HOST = process.env.DIGEST_HOST || '127.0.0.1';
-server.listen(PORT, HOST, () => {
-  console.log(`🚀 ClawFeed API running on http://${HOST}:${PORT}`);
+    server.listen(PORT, HOST, () => {
+    console.log(`🚀 Sliver API running on http://${HOST}:${PORT}`);
 });

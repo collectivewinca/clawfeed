@@ -31,7 +31,7 @@
 
 ### 3. Channel 推送
 Digest 通过多渠道主动分发，用户选择接收方式：
-- **Telegram Bot** — 定时推送 + 按需查询
+- **channel Bot** — 定时推送 + 按需查询
 - **Feishu/Lark** — 群机器人 / DM 推送
 - **Email** — 定期邮件摘要（daily/weekly）
 - **Slack** — Webhook / Bot 集成

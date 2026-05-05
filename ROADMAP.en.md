@@ -31,7 +31,6 @@ Make the entire system AI-agent-friendly, lowering automation barriers:
 
 ### 3. Channel Push
 Multi-channel proactive digest delivery — users choose how to receive:
-- **Telegram Bot** — Scheduled push + on-demand queries
 - **Feishu/Lark** — Group bot / DM delivery
 - **Email** — Periodic email summaries (daily/weekly)
 - **Slack** — Webhook / Bot integration

@@ -2,21 +2,13 @@ import Database from 'better-sqlite3';
 import { readFileSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { loadEnv } from './utils/env.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
 
-// Load .env
-const envPath = join(ROOT, '.env');
-const env = {};
-if (existsSync(envPath)) {
-  for (const line of readFileSync(envPath, 'utf8').split('\n')) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith('#')) continue;
-    const eq = trimmed.indexOf('=');
-    if (eq > 0) env[trimmed.slice(0, eq)] = trimmed.slice(eq + 1);
-  }
-}
+// Load .env using shared loader
+const env = loadEnv();
 
 let _db;
 
@@ -102,6 +94,28 @@ export function getDb(dbPath) {
   } catch (e) {
     if (!e.message.includes('duplicate column')) console.error('Migration 009:', e.message);
   }
+  // Migration 010: Performance indexes
+  try {
+    const sql10 = readFileSync(join(ROOT, 'migrations', '010_perf_indexes.sql'), 'utf8');
+    for (const stmt of sql10.split(';').filter(s => s.trim())) {
+      try { _db.exec(stmt + ';'); } catch (e) {
+        if (!e.message.includes('already exists') && !e.message.includes('duplicate column')) throw e;
+      }
+    }
+  } catch (e) {
+    if (!e.message.includes('already exists') && !e.message.includes('duplicate column')) console.error('Migration 010:', e.message);
+  }
+  // Migration 011: Approval workflow
+  try {
+    const sql11 = readFileSync(join(ROOT, 'migrations', '011_approval.sql'), 'utf8');
+    for (const stmt of sql11.split(';').filter(s => s.trim())) {
+      try { _db.exec(stmt + ';'); } catch (e) {
+        if (!e.message.includes('duplicate column')) throw e;
+      }
+    }
+  } catch (e) {
+    if (!e.message.includes('duplicate column')) console.error('Migration 011:', e.message);
+  }
   // Backfill slugs for existing users
   _backfillSlugs(_db);
   return _db;
@@ -130,7 +144,7 @@ function _backfillSlugs(db) {
 // ── Digests ──
 
 export function listDigests(db, { type, limit = 20, offset = 0 } = {}) {
-  let sql = 'SELECT id, type, content, metadata, created_at FROM digests';
+  let sql = 'SELECT id, type, substr(content, 1, 500) as excerpt, metadata, created_at FROM digests';
   const params = [];
   if (type) { sql += ' WHERE type = ?'; params.push(type); }
   sql += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
@@ -240,7 +254,7 @@ export function getUserBySlug(db, slug) {
 
 export function listDigestsByUser(db, userId, { type, limit = 10, since } = {}) {
   // userId=null means system digests (user_id IS NULL), which we also show for any user feed
-  let sql = 'SELECT id, type, content, created_at FROM digests WHERE (user_id = ? OR user_id IS NULL)';
+  let sql = 'SELECT id, type, substr(content, 1, 500) as content, created_at FROM digests WHERE (user_id = ? OR user_id IS NULL)';
   const params = [userId];
   if (type) { sql += ' AND type = ?'; params.push(type); }
   if (since) { sql += ' AND created_at >= ?'; params.push(since); }

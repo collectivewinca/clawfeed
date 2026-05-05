@@ -1,10 +1,10 @@
-# Contributing to ClawFeed
+# Contributing to Sliver
 
 ## Getting Started
 
 ```bash
-git clone https://github.com/kevinho/clawfeed.git
-cd clawfeed
+git clone https://github.com/collectivewinca/sliver.git
+cd sliver-feed
 npm install
 cp .env.example .env  # fill in your API keys
 npm run dev

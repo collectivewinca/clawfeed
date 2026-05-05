@@ -1,6 +1,6 @@
-# ClawFeed 多租户架构设计
+# Sliver 多租户架构设计
 
-> ClawFeed 从个人工具升级为公开 SaaS 服务的架构设计文档。
+> Sliver 从个人工具升级为公开 SaaS 服务的架构设计文档。
 
 ## 1. 产品理念
 
@@ -334,7 +334,7 @@ AI 编辑部会从这些源中为你精选内容。
 ### 板块结构
 
 ```
-📰 ClawFeed — 2026-02-22 Daily
+📰 Sliver — 2026-02-22 Daily
 
 🐦 Twitter 精选 (5)
   · @karpathy: LLM 推理优化新思路...  [via: AI Twitter]
@@ -505,7 +505,7 @@ unique sources << 1M（热门源大量重叠）
 
 #### 3. Channel 推送
 Digest 通过多渠道主动分发，用户选择接收方式：
-- **Telegram Bot** — 定时推送 + 按需查询
+- **channel Bot** — 定时推送 + 按需查询
 - **Feishu/Lark** — 群机器人 / DM 推送
 - **Email** — 定期邮件摘要（daily/weekly）
 - **Slack** — Webhook / Bot 集成
