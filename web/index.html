@@ -205,7 +205,7 @@ body.light .skeleton-card { background: #fff; }
       <div class="auth-bar" id="authBar"></div>
     </div>
   </div>
-  <p class="subtitle" id="subtitleText">AI NEWS DIGEST — powered by <a href="https://github.com/collectivewinca/sliver" target="_blank" rel="noopener" class="agent-name sliver">Sliver</a></p>
+  <p class="subtitle" id="subtitleText">AI NEWS DIGEST — powered by <a href="https://sliver.network/" target="_blank" rel="noopener" class="agent-name sliver">Sliver</a></p>
   <p class="info-banner" id="infoBanner" style="color:#e8a838;font-size:0.85em;margin:-16px 0 16px 0;"></p>
   <div class="tabs">
     <div class="tab active" data-type="4h">4H Briefs</div>
@@ -257,7 +257,7 @@ initTheme();
 const I18N = {
   en: {
     title: '☀️ Sliver',
-    subtitle: 'AI NEWS DIGEST — POWERED BY <a href="https://github.com/collectivewinca/sliver" target="_blank" rel="noopener" class="agent-name sliver">Sliver</a>',
+    subtitle: 'AI NEWS DIGEST — POWERED BY <a href="https://sliver.network/" target="_blank" rel="noopener" class="agent-name sliver">Sliver</a>',
     tab4h: '4H Briefs', tabDaily: 'Daily', tabWeekly: 'Weekly', tabMonthly: 'Monthly', tabMarks: '📌 Marks',
     loginBanner: '💡 Sign in with Google to bookmark articles and manage your reading list',
     loginBtn: 'Login', logout: 'Logout', signIn: 'Sign in',
@@ -509,13 +509,13 @@ function parseCreatedAt(d) {
   }
   // Handle month format: "2026-02"
   if (/^\d{4}-\d{2}$/.test(ca)) {
-    return new Date(ca + '-01T00:00:00+08:00');
+    return new Date(ca + '-01T00:00:00Z');
   }
   // Handle year format: "2026"
   if (/^\d{4}$/.test(ca)) {
-    return new Date(ca + '-01-01T00:00:00+08:00');
+    return new Date(ca + '-01-01T00:00:00Z');
   }
-  return new Date(ca.replace(' ', 'T') + (ca.includes('+') ? '' : '+08:00'));
+  return new Date(ca.replace(' ', 'T') + (ca.includes('+') ? '' : 'Z'));
 }
 
 function getWeekKey(dt) {
@@ -550,12 +550,17 @@ function groupDigests(digests) {
 
 function formatGroupLabel(type, key) {
   if (type === '4h') {
-    const d = new Date(key + 'T00:00:00+08:00');
-    const wd = WEEKDAYS()[d.getDay()];
+    const d = new Date(key + 'T00:00:00Z');
+    // For the label day-of-week, we want to match the date string (key)
+    // So we use UTC methods since we created it with a UTC string
+    const wd = WEEKDAYS()[d.getUTCDay()];
     const today = new Date(); today.setHours(0,0,0,0);
-    const diff = Math.round((today - new Date(d.toDateString())) / 86400000);
-    if (diff === 0) return `📅 ${t('today')} · ${key} ${wd}`;
-    if (diff === 1) return `📅 ${t('yesterday')} · ${key} ${wd}`;
+    // Compare key (YYYY-MM-DD) with today's local date
+    const todayStr = today.toISOString().slice(0, 10);
+    if (key === todayStr) return `📅 ${t('today')} · ${key} ${wd}`;
+    const yesterday = new Date(today.getTime() - 86400000);
+    const yesterdayStr = yesterday.toISOString().slice(0, 10);
+    if (key === yesterdayStr) return `📅 ${t('yesterday')} · ${key} ${wd}`;
     return `📅 ${key} ${wd}`;
   }
   if (type === 'daily') {
@@ -653,10 +658,10 @@ async function renderList(append = false) {
       html += `<div class="date-group"><div class="date-group-header">${label} <span class="count">${items.length} ${t('articles')}</span></div><div class="date-group-items">`;
       for (const d of items) {
         const dt = d._dt;
-        const time = dt.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false });
+        const time = dt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
         let title, badge;
         if (currentType === '4h') {
-          title = `${time} SGT`; badge = `<span class="time-badge">${time}</span>`;
+          title = `${time}`; badge = `<span class="time-badge">${time}</span>`;
         } else if (currentType === 'daily') {
           const dateStr = dt.toISOString().slice(0, 10);
           const wd = WEEKDAYS()[dt.getDay()];

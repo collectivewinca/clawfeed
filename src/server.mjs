@@ -8,14 +8,14 @@ import { randomBytes, createHmac, timingSafeEqual } from 'crypto';
 import { lookup } from 'dns/promises';
 import { isIP } from 'net';
 import { getDb, listDigests, getDigest, createDigest, listMarks, createMark, deleteMark, getConfig, setConfig, upsertUser, createSession, getSession, deleteSession, listSources, getSource, createSource, updateSource, deleteSource, getSourceByTypeConfig, getUserBySlug, listDigestsByUser, countDigestsByUser, createPack, getPack, getPackBySlug, listPacks, incrementPackInstall, deletePack, listSubscriptions, subscribe, unsubscribe, bulkSubscribe, isSubscribed, createFeedback, getUserFeedback, getAllFeedback, replyToFeedback, updateFeedbackStatus, markFeedbackRead, getUnreadFeedbackCount } from './db.mjs';
-import { getEnv } from './utils/env.mjs';
+import { loadEnv, getEnv } from './utils/env.mjs';
 import { validateString, validateNumber, validateBoolean } from './utils/validation.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
 
 // Load shared environment
-const env = getEnv();
+const env = loadEnv();
 
 const GOOGLE_CLIENT_ID = env.GOOGLE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = env.GOOGLE_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET;
@@ -203,11 +203,11 @@ function attachUser(req) {
 }
 
 function _digestTitle(d, ca) {
-  const dt = new Date(ca.includes('+') ? ca : ca.replace(' ', 'T') + '+08:00');
-  const timeStr = dt.toLocaleString('en-SG', { timeZone: 'Asia/Singapore', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
+  const dt = new Date(ca.includes('+') ? ca : ca.replace(' ', 'T') + 'Z');
+  const timeStr = dt.toLocaleString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
   const icons = { '4h': '☀️', daily: '📰', weekly: '📅', monthly: '📊' };
   const labels = { '4h': 'Sliver 4H', daily: 'Sliver Daily', weekly: 'Sliver Weekly', monthly: 'Sliver Monthly' };
-  return `${icons[d.type] || '📝'} ${labels[d.type] || 'Sliver'} | ${timeStr} SGT`;
+  return `${icons[d.type] || '📝'} ${labels[d.type] || 'Sliver'} | ${timeStr}`;
 }
 
 // ── Source URL resolver ──
@@ -877,7 +877,7 @@ const server = createServer(async (req, res) => {
   }
 });
 
-const HOST = process.env.DIGEST_HOST || '127.0.0.1';
-    server.listen(PORT, HOST, () => {
-    console.log(`🚀 Sliver API running on http://${HOST}:${PORT}`);
+const HOST = process.env.DIGEST_HOST || env.DIGEST_HOST || '127.0.0.1';
+server.listen(PORT, HOST, () => {
+  console.log(`🚀 Sliver API running on http://${HOST}:${PORT}`);
 });
