@@ -523,7 +523,12 @@ function getWeekKey(dt) {
 
 function groupDigests(digests) {
   const groups = {}; const order = [];
-  function localDateStr(dt) { return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`; }
+  function localDateStr(dt) {
+    const y = dt.getFullYear();
+    const m = String(dt.getMonth() + 1).padStart(2, '0');
+    const d = String(dt.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
   function localMonthStr(dt) { return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}`; }
   for (const d of digests) {
     const dt = parseCreatedAt(d);
@@ -545,16 +550,24 @@ function groupDigests(digests) {
 
 function formatGroupLabel(type, key) {
   if (type === '4h') {
-    const d = new Date(key + 'T00:00:00Z');
-    // For the label day-of-week, we want to match the date string (key)
-    // So we use UTC methods since we created it with a UTC string
-    const wd = WEEKDAYS()[d.getUTCDay()];
-    const today = new Date(); today.setHours(0,0,0,0);
-    // Compare key (YYYY-MM-DD) with today's local date
-    const todayStr = today.toISOString().slice(0, 10);
-    if (key === todayStr) return `📅 ${t('today')} · ${key} ${wd}`;
+    const today = new Date();
+    const y = today.getFullYear();
+    const m = String(today.getMonth() + 1).padStart(2, '0');
+    const d = String(today.getDate()).padStart(2, '0');
+    const todayStr = `${y}-${m}-${d}`;
+
     const yesterday = new Date(today.getTime() - 86400000);
-    const yesterdayStr = yesterday.toISOString().slice(0, 10);
+    const yy = yesterday.getFullYear();
+    const ym = String(yesterday.getMonth() + 1).padStart(2, '0');
+    const yd = String(yesterday.getDate()).padStart(2, '0');
+    const yesterdayStr = `${yy}-${ym}-${yd}`;
+
+    // The key is already a local date string from groupDigests
+    const [ky, km, kd] = key.split('-').map(Number);
+    const dateObj = new Date(ky, km - 1, kd);
+    const wd = WEEKDAYS()[dateObj.getDay()];
+
+    if (key === todayStr) return `📅 ${t('today')} · ${key} ${wd}`;
     if (key === yesterdayStr) return `📅 ${t('yesterday')} · ${key} ${wd}`;
     return `📅 ${key} ${wd}`;
   }
@@ -663,10 +676,11 @@ async function renderList(append = false) {
           title = `${dateStr} ${wd}`; badge = '';
         } else if (currentType === 'weekly') {
           const wk = getWeekKey(dt);
-          title = `第 ${parseInt(wk.split('-W')[1])} 周`; badge = '';
+          title = `Week ${parseInt(wk.split('-W')[1])}`; badge = '';
         } else {
           const mon = dt.toISOString().slice(0, 7);
-          title = `${parseInt(mon.split('-')[1])} 月`; badge = '';
+          const monthName = dt.toLocaleString('en-US', { month: 'long' });
+          title = `${monthName}`; badge = '';
         }
         const excerpt = extractExcerpt(d.content);
         html += `<div class="digest-card" data-id="${d.id}"><div class="card-body"><div class="title">${title}</div>${excerpt ? `<div class="excerpt">${excerpt}</div>` : ''}</div>${badge}</div>`;
