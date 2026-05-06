@@ -411,7 +411,8 @@ const server = createServer(async (req, res) => {
     }
   }
 
-  if (!path.startsWith('/api/') && path !== '/mark' && path !== '/marks') {
+  // Handle backward compat for legacy non-API endpoints
+  if (path === '/mark' || path === '/marks') {
     path = '/api' + path;
   }
 
@@ -546,15 +547,24 @@ const server = createServer(async (req, res) => {
     // ── Marks endpoints (auth required) ──
 
     if (req.method === 'GET' && path === '/api/marks') {
-      if (!req.user) return json(res, { error: 'not authenticated' }, 401);
+      const authHeader = req.headers.authorization || '';
+      const bearerKey = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+      const hasValidKey = API_KEY && bearerKey === API_KEY;
+      if (!req.user && !hasValidKey) return json(res, { error: 'not authenticated' }, 401);
+
       const status = params.get('status') || undefined;
-      return json(res, listMarks(db, { status, userId: req.user.id }));
+      const limit = validateNumber(params.get('limit') || '100', 'limit', { min: 1, max: 1000 });
+      return json(res, listMarks(db, { status, limit, userId: req.user?.id }));
     }
 
     if (req.method === 'POST' && path === '/api/marks') {
-      if (!req.user) return json(res, { error: 'not authenticated' }, 401);
+      const authHeader = req.headers.authorization || '';
+      const bearerKey = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+      const hasValidKey = API_KEY && bearerKey === API_KEY;
+      if (!req.user && !hasValidKey) return json(res, { error: 'not authenticated' }, 401);
+
       const body = await parseBody(req);
-      const result = createMark(db, { ...body, userId: req.user.id });
+      const result = createMark(db, { ...body, userId: req.user?.id });
       return json(res, { ok: true, ...result });
     }
 

@@ -179,11 +179,11 @@ export function listMarks(db, { status, limit = 100, offset = 0, userId } = {}) 
   return db.prepare(sql).all(...params);
 }
 
-export function createMark(db, { url, title = '', note = '', userId }) {
+export function createMark(db, { url, title = '', note = '', userId, sourceName = '', relevance_score = 0.0 }) {
   // Check duplicate for this user
   const existing = db.prepare('SELECT id FROM marks WHERE url = ? AND user_id = ?').get(url, userId);
   if (existing) return { id: existing.id, duplicate: true };
-  const result = db.prepare('INSERT INTO marks (url, title, note, user_id) VALUES (?, ?, ?, ?)').run(url, title, note, userId);
+  const result = db.prepare('INSERT INTO marks (url, title, note, user_id, source_name, relevance_score) VALUES (?, ?, ?, ?, ?, ?)').run(url, title, note, userId, sourceName, relevance_score);
   return { id: result.lastInsertRowid, duplicate: false };
 }
 
