@@ -552,11 +552,18 @@ Sitemap: ${PUBLIC_BASE_URL}/sitemap.xml
     const today = new Date().toISOString().slice(0, 10);
     const trackers = db.prepare("SELECT key FROM config WHERE key LIKE 'tracker:%'").all();
     const trackerSlugs = trackers.map(r => r.key.slice(8));
+    const recentDigests = db.prepare("SELECT id FROM digests WHERE type = 'daily' ORDER BY id DESC LIMIT 30").all();
     const urls = [
       { loc: `${PUBLIC_BASE_URL}/`, priority: '1.0', changefreq: 'daily' },
       { loc: `${PUBLIC_BASE_URL}/blog`, priority: '0.9', changefreq: 'daily' },
+      { loc: `${PUBLIC_BASE_URL}/briefs`, priority: '0.8', changefreq: 'daily' },
       { loc: `${PUBLIC_BASE_URL}/companies`, priority: '0.7', changefreq: 'weekly' },
       { loc: `${PUBLIC_BASE_URL}/about`, priority: '0.5', changefreq: 'monthly' },
+      ...recentDigests.map(d => ({
+        loc: `${PUBLIC_BASE_URL}/brief/${d.id}`,
+        priority: '0.6',
+        changefreq: 'monthly'
+      })),
       ...trackerSlugs.map(slug => ({
         loc: `${PUBLIC_BASE_URL}/tracker/${slug}`,
         priority: '0.7',
@@ -613,13 +620,15 @@ ${items}
   }
 
   // ── SPA Routes ──
-  if (req.method === 'GET' && (path === '/' || path === '/dashboard' || path === '/blog' || path === '/about' || path === '/companies' || path.startsWith('/tracker/') || path === '/tracker')) {
+  if (req.method === 'GET' && (path === '/' || path === '/dashboard' || path === '/blog' || path === '/about' || path === '/companies' || path === '/briefs' || path.startsWith('/brief/') || path.startsWith('/tracker/') || path === '/tracker')) {
     try {
       let file = 'showcase.html';
       if (path === '/blog') file = 'blog.html';
       else if (path === '/about') file = 'about.html';
       else if (path === '/companies') file = 'companies.html';
       else if (path === '/dashboard') file = 'dashboard.html';
+      else if (path === '/briefs') file = 'briefs.html';
+      else if (path.startsWith('/brief/')) file = 'brief.html';
       else if (path === '/tracker' || path.startsWith('/tracker/')) file = 'tracker.html';
       const html = readFileSync(join(ROOT, 'web', file), 'utf8');
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
@@ -671,6 +680,17 @@ ${items}
       const limit = parseInt(params.get('limit') || '20');
       const offset = parseInt(params.get('offset') || '0');
       return json(res, listDigests(db, { type, limit, offset }));
+    }
+    const digestMatch = path.match(/^\/api\/digests\/(\d+)$/);
+    if (req.method === 'GET' && digestMatch) {
+      const id = parseInt(digestMatch[1], 10);
+      const d = getDigest(db, id);
+      if (!d) return json(res, { error: 'not_found' }, 404);
+      // Compute prev/next of same type for archive navigation
+      const t = d.type || 'daily';
+      const prev = db.prepare("SELECT id, created_at FROM digests WHERE type = ? AND id < ? ORDER BY id DESC LIMIT 1").get(t, id);
+      const next = db.prepare("SELECT id, created_at FROM digests WHERE type = ? AND id > ? ORDER BY id ASC LIMIT 1").get(t, id);
+      return json(res, { ...d, prev: prev || null, next: next || null });
     }
 
     // ── Tracker Endpoints (entity rollups written by tracker_updater.py) ──

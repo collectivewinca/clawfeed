@@ -83,10 +83,13 @@
 
         <!-- Latest Brief -->
         <section class="mb-16">
-            <h2 class="font-serif text-xl font-bold tracking-tight mb-4 flex items-center gap-2">
-                <span class="w-2 h-2 bg-red-700"></span>
-                Today's Brief
-            </h2>
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="font-serif text-xl font-bold tracking-tight flex items-center gap-2">
+                    <span class="w-2 h-2 bg-red-700"></span>
+                    Today's Dispatch
+                </h2>
+                <a href="/briefs" class="text-[10px] font-mono uppercase tracking-widest text-gray-500 hover:text-editorial-charcoal">All dispatches &rarr;</a>
+            </div>
             <div id="latest-brief"></div>
         </section>
 
@@ -115,6 +118,7 @@
             <div class="flex items-center gap-5 text-[10px] font-mono uppercase tracking-wider text-gray-500">
                 <a href="/blog.rss" class="nav-link">RSS</a>
                 <a href="/blog" class="nav-link">Insights</a>
+                <a href="/briefs" class="nav-link">Dispatches</a>
                 <a href="/companies" class="nav-link">Companies</a>
                 <a href="/about" class="nav-link">Market</a>
                 <a href="/sitemap.xml" class="nav-link">Sitemap</a>
@@ -150,21 +154,48 @@ function renderMarkdown(md) {
     return html;
 }
 
+function extractHeadline(content) {
+    if (!content) return null;
+    for (const raw of content.split('\n')) {
+        const line = raw.trim();
+        const m = line.match(/^##\s+(?:Thread\s+\d+:\s*)?(.+?)\s*$/);
+        if (m) {
+            const title = m[1].trim();
+            if (title.toLowerCase() === 'lede') continue;
+            return title.replace(/^\*\*|\*\*$/g, '').trim();
+        }
+    }
+    return null;
+}
+function extractDek(content) {
+    if (!content) return '';
+    const ledeIdx = content.search(/^##\s+Lede/im);
+    if (ledeIdx === -1) return '';
+    const after = content.slice(ledeIdx).split('\n');
+    for (let i = 1; i < after.length; i++) {
+        const line = after[i].trim();
+        if (!line || line.startsWith('---') || line.startsWith('#')) continue;
+        return line;
+    }
+    return '';
+}
+
 async function loadLatestBrief() {
     const root = document.getElementById('latest-brief');
-    const empty = `<div class="editorial-card p-8 md:p-10 text-gray-500"><p class="font-serif text-lg leading-snug">Today's brief is being prepared.</p><p class="text-sm mt-2">A new edition lands daily at 14:35 UTC.</p></div>`;
+    const empty = `<div class="editorial-card p-8 md:p-10 text-gray-500"><p class="font-serif text-lg leading-snug">Today's dispatch is being prepared.</p><p class="text-sm mt-2">A new edition lands daily at 14:35 UTC.</p></div>`;
     try {
         const list = await (await fetch('/api/digests?type=daily&limit=1')).json();
         if (!list.length) { root.innerHTML = empty; return; }
         const d = list[0];
-        const dt = new Date(d.created_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+        const dt = new Date(d.created_at).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+        const headline = extractHeadline(d.content) || 'Today’s edition';
+        const dek = extractDek(d.content);
         root.innerHTML = `
             <article class="editorial-card p-8 md:p-10" style="border-color: var(--ink);">
-                <div class="flex items-center gap-3 mb-5">
-                    <span class="text-[10px] font-mono uppercase tracking-widest text-white bg-editorial-charcoal px-2 py-0.5">Daily Brief</span>
-                    <span class="font-mono text-[10px] text-gray-400">${dt}</span>
-                </div>
-                <div class="summary-block">${renderMarkdown(d.content)}</div>
+                <div class="text-[10px] font-mono uppercase tracking-widest text-gray-500 mb-2">${dt}</div>
+                <h3 class="font-serif text-3xl md:text-4xl font-bold leading-tight mb-4">${headline}</h3>
+                ${dek ? `<p class="text-gray-600 leading-relaxed mb-5">${dek}</p>` : ''}
+                <a href="/brief/${d.id}" class="inline-block text-xs font-mono uppercase tracking-widest text-blue-700">Read full edition &rarr;</a>
             </article>`;
     } catch { root.innerHTML = empty; }
 }

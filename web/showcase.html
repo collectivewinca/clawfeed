@@ -123,12 +123,15 @@
                 </div>
             </aside>
 
-            <!-- CENTER: Cover Story (latest Brief) + Latest Insights -->
+            <!-- CENTER: Cover Story (latest dispatch) + Latest Insights -->
             <div class="md:col-span-7">
                 <article class="editorial-card p-8 md:p-12 mb-10">
-                    <div class="mb-4 font-mono text-[10px] uppercase tracking-widest text-gray-500">Cover Story · Daily Brief</div>
+                    <div class="flex justify-between items-center mb-4">
+                        <span class="font-mono text-[10px] uppercase tracking-widest text-gray-500">Cover · Daily Dispatch</span>
+                        <a href="/briefs" class="font-mono text-[10px] uppercase tracking-widest text-gray-500 hover:text-editorial-charcoal">All dispatches &rarr;</a>
+                    </div>
                     <div id="brief-root">
-                        <h1 class="font-serif text-4xl md:text-5xl font-bold leading-tight mb-6">Today's brief is being prepared.</h1>
+                        <h1 class="font-serif text-4xl md:text-5xl font-bold leading-tight mb-6">Today's dispatch is being prepared.</h1>
                         <p class="text-gray-500">A new edition lands daily at 14:35 UTC, drawn from the past 24 hours of primary-source chip industry coverage.</p>
                     </div>
                 </article>
@@ -200,6 +203,7 @@
             <div class="flex items-center gap-5 text-[10px] font-mono uppercase tracking-wider text-gray-500">
                 <a href="/blog.rss" class="nav-link">RSS</a>
                 <a href="/blog" class="nav-link">Insights</a>
+                <a href="/briefs" class="nav-link">Dispatches</a>
                 <a href="/companies" class="nav-link">Companies</a>
                 <a href="/about" class="nav-link">Market</a>
                 <a href="/sitemap.xml" class="nav-link">Sitemap</a>
@@ -242,16 +246,47 @@ function renderMarkdown(md) {
     return html;
 }
 
+function extractHeadline(content) {
+    if (!content) return null;
+    for (const raw of content.split('\n')) {
+        const line = raw.trim();
+        const m = line.match(/^##\s+(?:Thread\s+\d+:\s*)?(.+?)\s*$/);
+        if (m) {
+            const title = m[1].trim();
+            if (title.toLowerCase() === 'lede') continue;
+            return title.replace(/^\*\*|\*\*$/g, '').trim();
+        }
+    }
+    return null;
+}
+
+function extractDek(content) {
+    if (!content) return '';
+    const ledeIdx = content.search(/^##\s+Lede/im);
+    if (ledeIdx === -1) return '';
+    const after = content.slice(ledeIdx).split('\n');
+    for (let i = 1; i < after.length; i++) {
+        const line = after[i].trim();
+        if (!line || line.startsWith('---') || line.startsWith('#')) continue;
+        return line;
+    }
+    return '';
+}
+
 async function loadBrief() {
     try {
         const r = await fetch('/api/digests?type=daily&limit=1');
         const list = await r.json();
         if (!list.length) return;
         const d = list[0];
-        const dt = new Date(d.created_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+        const dt = new Date(d.created_at).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+        const headline = extractHeadline(d.content) || 'Today’s edition';
+        const dek = extractDek(d.content);
         document.getElementById('brief-root').innerHTML = `
             <div class="text-[10px] font-mono uppercase tracking-widest text-gray-500 mb-3">${dt}</div>
-            <div class="summary-block">${renderMarkdown(d.content)}</div>`;
+            <h1 class="font-serif text-4xl md:text-5xl font-bold leading-tight mb-5">${headline}</h1>
+            ${dek ? `<p class="text-lg text-gray-600 leading-relaxed mb-6">${dek}</p>` : ''}
+            <a href="/brief/${d.id}" class="inline-block text-xs font-mono uppercase tracking-widest text-blue-700">Read full edition &rarr;</a>`;
     } catch {}
 }
 

@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dispatches | ChipMonk</title>
+    <meta name="description" content="The ChipMonk dispatch archive — every daily edition of silicon-industry intelligence in one place.">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;800;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script>tailwind.config={theme:{extend:{fontFamily:{serif:["Playfair Display","serif"],sans:["Inter","sans-serif"],mono:["JetBrains Mono","monospace"]},colors:{paper:"#FCFCFA","editorial-charcoal":"#121212"}}}};</script>
+    <style>
+        :root { --paper:#FCFCFA; --ink:#121212; --ink-soft:#334155; --muted:#64748B; --border:#E5E7EB; --accent:#2563EB; }
+        body { background: var(--paper); color: var(--ink); -webkit-font-smoothing: antialiased; font-family: Inter, sans-serif; }
+        .editorial-card { background: white; border: 1px solid var(--border); transition: border-color .15s; }
+        .editorial-card:hover { border-color: var(--ink); }
+        .nav-link { color: var(--ink-soft); font-weight: 500; transition: color .15s; }
+        .nav-link:hover { color: var(--ink); }
+    </style>
+</head>
+<body class="bg-paper text-editorial-charcoal">
+    <header class="border-b border-gray-200 bg-white">
+        <div class="bg-paper border-b border-gray-200">
+            <div class="mx-auto max-w-7xl px-6 py-1.5 flex justify-between text-xs font-mono text-gray-500 uppercase tracking-wider">
+                <span id="today-date"></span>
+                <span>Network Status: Active</span>
+            </div>
+        </div>
+        <nav class="flex items-center justify-between px-6 lg:px-8 py-4 lg:py-6">
+            <a href="/" class="flex items-center gap-2">
+                <svg class="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="10" width="12" height="10" rx="2"/><circle cx="6.5" cy="8.5" r="1.5"/><circle cx="11.5" cy="8.5" r="1.5"/><path d="M15 14 C 22 14 22 4 17 3"/><line x1="3" y1="14" x2="1" y2="14"/><line x1="3" y1="17" x2="1" y2="17"/></svg>
+                <span class="hidden sm:inline text-xl font-serif font-semibold">ChipMonk</span>
+            </a>
+            <div class="flex items-center gap-4 md:gap-8 text-sm">
+                <a href="/blog" class="font-semibold nav-link">Insights</a>
+                <a href="/companies" class="font-semibold nav-link">Companies</a>
+                <a href="/about" class="font-semibold nav-link">Market</a>
+            </div>
+        </nav>
+    </header>
+
+    <main class="max-w-4xl mx-auto px-6 lg:px-8 pt-10 pb-20">
+        <header class="border-b-4 border-editorial-charcoal pb-4 mb-10">
+            <span class="text-[10px] font-mono uppercase tracking-widest text-gray-500">The Archive</span>
+            <h1 class="font-serif text-5xl md:text-6xl font-extrabold tracking-tight mt-1">Dispatches</h1>
+            <p class="text-gray-500 mt-3 max-w-2xl">Every daily edition of silicon intelligence ChipMonk has shipped, newest first.</p>
+        </header>
+        <div id="dispatch-list">
+            <div class="text-gray-400 italic">Loading archive…</div>
+        </div>
+    </main>
+
+    <footer class="border-t border-gray-200">
+        <div class="max-w-7xl mx-auto px-6 py-10 flex flex-col md:flex-row justify-between items-center gap-4">
+            <span class="text-xs text-gray-500">ChipMonk &middot; Silicon Intelligence Hub</span>
+            <div class="flex items-center gap-5 text-[10px] font-mono uppercase tracking-wider text-gray-500">
+                <a href="/blog.rss" class="nav-link">RSS</a>
+                <a href="/blog" class="nav-link">Insights</a>
+                <a href="/briefs" class="nav-link">Dispatches</a>
+                <a href="/companies" class="nav-link">Companies</a>
+                <a href="/about" class="nav-link">Market</a>
+                <a href="/sitemap.xml" class="nav-link">Sitemap</a>
+            </div>
+            <div class="text-[10px] font-mono text-gray-400">&copy; 2026 ChipMonk</div>
+        </div>
+    </footer>
+
+<script>
+document.getElementById('today-date').textContent =
+    new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+function fmtLongDate(s) {
+    if (!s) return '';
+    const d = new Date(s.replace(' ', 'T') + 'Z');
+    if (isNaN(d)) return s;
+    return d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+}
+
+function escapeHtml(s) {
+    return String(s || '').replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' })[c] || c);
+}
+
+// Pull a real headline from the brief markdown:
+// 1. First "## Thread N: Title" or "## Lede"+sub
+// 2. Or first non-H1 H2
+// 3. Fallback: short slice of first paragraph
+function extractHeadline(content) {
+    if (!content) return null;
+    const lines = content.split('\n');
+    for (const raw of lines) {
+        const line = raw.trim();
+        const m = line.match(/^##\s+(?:Thread\s+\d+:\s*)?(.+?)\s*$/);
+        if (m) {
+            const title = m[1].trim();
+            if (title.toLowerCase() === 'lede') continue;
+            return title.replace(/^\*\*|\*\*$/g, '').trim();
+        }
+    }
+    // fall-through: first non-empty paragraph
+    const para = lines.find(l => l.trim() && !l.startsWith('#') && !l.startsWith('---'));
+    if (para) return para.trim().slice(0, 100);
+    return null;
+}
+
+function extractDek(content) {
+    if (!content) return '';
+    // Look for "## Lede" then take the first paragraph after it
+    const ledeIdx = content.search(/^##\s+Lede/im);
+    if (ledeIdx === -1) return '';
+    const after = content.slice(ledeIdx).split('\n');
+    for (let i = 1; i < after.length; i++) {
+        const line = after[i].trim();
+        if (!line || line.startsWith('---') || line.startsWith('#')) continue;
+        return line.slice(0, 240);
+    }
+    return '';
+}
+
+(async () => {
+    const root = document.getElementById('dispatch-list');
+    try {
+        const list = await (await fetch('/api/digests?type=daily&limit=200')).json();
+        if (!Array.isArray(list) || !list.length) {
+            root.innerHTML = '<div class="editorial-card p-8 text-gray-500"><p class="font-serif text-lg">Archive is empty.</p><p class="text-sm mt-2">A new dispatch lands daily at 14:35 UTC.</p></div>';
+            return;
+        }
+        root.innerHTML = list.map(d => {
+            const headline = extractHeadline(d.content) || 'Untitled dispatch';
+            const dek = extractDek(d.content);
+            const date = fmtLongDate(d.created_at);
+            return `
+            <a href="/brief/${d.id}" class="block group" style="text-decoration:none;color:inherit;">
+                <article class="border-b border-gray-200 py-8 first:pt-0 group-hover:bg-white transition px-2 -mx-2">
+                    <div class="text-[10px] font-mono uppercase tracking-widest text-gray-500 mb-2">${date}</div>
+                    <h2 class="font-serif text-2xl md:text-3xl font-bold leading-tight group-hover:text-gray-700 transition">${escapeHtml(headline)}</h2>
+                    ${dek ? `<p class="text-gray-600 leading-relaxed mt-3 max-w-2xl">${escapeHtml(dek)}</p>` : ''}
+                    <div class="text-[10px] font-mono uppercase tracking-widest text-blue-700 mt-3">Read edition &rarr;</div>
+                </article>
+            </a>`;
+        }).join('');
+    } catch (e) {
+        root.innerHTML = '<div class="editorial-card p-8 text-red-700">Failed to load the archive.</div>';
+    }
+})();
+</script>
+</body>
+</html>

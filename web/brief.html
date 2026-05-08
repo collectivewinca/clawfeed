@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dispatch | ChipMonk</title>
+    <meta name="description" content="A daily ChipMonk dispatch — silicon industry intelligence distilled from primary sources.">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;800;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script>tailwind.config={theme:{extend:{fontFamily:{serif:["Playfair Display","serif"],sans:["Inter","sans-serif"],mono:["JetBrains Mono","monospace"]},colors:{paper:"#FCFCFA","editorial-charcoal":"#121212"}}}};</script>
+    <style>
+        :root { --paper:#FCFCFA; --ink:#121212; --ink-soft:#334155; --muted:#64748B; --border:#E5E7EB; --accent:#2563EB; }
+        body { background: var(--paper); color: var(--ink); -webkit-font-smoothing: antialiased; font-family: Inter, sans-serif; }
+        .nav-link { color: var(--ink-soft); font-weight: 500; transition: color .15s; }
+        .nav-link:hover { color: var(--ink); }
+        .summary-block strong { color: var(--ink); }
+        .summary-block p { margin: 14px 0; line-height: 1.75; color: var(--ink-soft); }
+        .summary-block h1 { display: none; }
+        .summary-block h2 { color: var(--ink); font-family: 'Playfair Display', serif; font-weight: 700; font-size: 28px; margin-top: 36px; margin-bottom: 12px; }
+        .summary-block h3 { color: var(--ink); font-family: 'Playfair Display', serif; font-weight: 700; font-size: 20px; margin-top: 24px; margin-bottom: 8px; }
+        .summary-block hr { border: none; border-top: 1px solid var(--border); margin: 32px 0; }
+        .summary-block ul { padding-left: 24px; margin: 14px 0; }
+        .summary-block li { margin: 6px 0; color: var(--ink-soft); list-style: disc; }
+    </style>
+</head>
+<body class="bg-paper text-editorial-charcoal">
+    <header class="border-b border-gray-200 bg-white">
+        <div class="bg-paper border-b border-gray-200">
+            <div class="mx-auto max-w-7xl px-6 py-1.5 flex justify-between text-xs font-mono text-gray-500 uppercase tracking-wider">
+                <span id="today-date"></span>
+                <span>Network Status: Active</span>
+            </div>
+        </div>
+        <nav class="flex items-center justify-between px-6 lg:px-8 py-4 lg:py-6">
+            <a href="/" class="flex items-center gap-2">
+                <svg class="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="10" width="12" height="10" rx="2"/><circle cx="6.5" cy="8.5" r="1.5"/><circle cx="11.5" cy="8.5" r="1.5"/><path d="M15 14 C 22 14 22 4 17 3"/><line x1="3" y1="14" x2="1" y2="14"/><line x1="3" y1="17" x2="1" y2="17"/></svg>
+                <span class="hidden sm:inline text-xl font-serif font-semibold">ChipMonk</span>
+            </a>
+            <div class="flex items-center gap-4 md:gap-8 text-sm">
+                <a href="/blog" class="font-semibold nav-link">Insights</a>
+                <a href="/companies" class="font-semibold nav-link">Companies</a>
+                <a href="/about" class="font-semibold nav-link">Market</a>
+            </div>
+        </nav>
+    </header>
+
+    <main class="max-w-3xl mx-auto px-6 lg:px-8 pt-10 pb-20" id="main-root">
+        <div class="text-gray-400 italic">Loading…</div>
+    </main>
+
+    <footer class="border-t border-gray-200">
+        <div class="max-w-7xl mx-auto px-6 py-10 flex flex-col md:flex-row justify-between items-center gap-4">
+            <span class="text-xs text-gray-500">ChipMonk &middot; Silicon Intelligence Hub</span>
+            <div class="flex items-center gap-5 text-[10px] font-mono uppercase tracking-wider text-gray-500">
+                <a href="/blog.rss" class="nav-link">RSS</a>
+                <a href="/blog" class="nav-link">Insights</a>
+                <a href="/briefs" class="nav-link">Dispatches</a>
+                <a href="/companies" class="nav-link">Companies</a>
+                <a href="/about" class="nav-link">Market</a>
+                <a href="/sitemap.xml" class="nav-link">Sitemap</a>
+            </div>
+            <div class="text-[10px] font-mono text-gray-400">&copy; 2026 ChipMonk</div>
+        </div>
+    </footer>
+
+<script>
+const id = parseInt(location.pathname.replace(/^\/brief\//, '').replace(/\/$/, ''), 10);
+document.getElementById('today-date').textContent =
+    new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+function fmtLongDate(s) {
+    if (!s) return '';
+    const d = new Date(s.replace(' ', 'T') + 'Z');
+    if (isNaN(d)) return s;
+    return d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+}
+function fmtShortDate(s) {
+    if (!s) return '';
+    const d = new Date(s.replace(' ', 'T') + 'Z');
+    if (isNaN(d)) return s;
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+function escapeHtml(s) {
+    return String(s || '').replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' })[c] || c);
+}
+
+function renderMarkdown(md) {
+    if (!md) return '';
+    const inline = s => escapeHtml(s)
+        .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*([^*]+)\*/g, '<em>$1</em>');
+    let html = '';
+    let inList = false;
+    for (const raw of md.split('\n')) {
+        const line = raw.trim();
+        if (!line) { if (inList) { html += '</ul>'; inList = false; } continue; }
+        if (/^---+$/.test(line)) { if (inList) { html += '</ul>'; inList = false; } html += '<hr>'; continue; }
+        let m;
+        if (m = line.match(/^###\s+(.+)$/)) { if (inList) { html += '</ul>'; inList = false; } html += `<h3>${inline(m[1])}</h3>`; continue; }
+        if (m = line.match(/^##\s+(.+)$/))  { if (inList) { html += '</ul>'; inList = false; } html += `<h2>${inline(m[1])}</h2>`; continue; }
+        if (m = line.match(/^#\s+(.+)$/))   { if (inList) { html += '</ul>'; inList = false; } html += `<h1>${inline(m[1])}</h1>`; continue; }
+        if (m = line.match(/^[-*]\s+(.+)$/)) { if (!inList) { html += '<ul>'; inList = true; } html += `<li>${inline(m[1])}</li>`; continue; }
+        if (inList) { html += '</ul>'; inList = false; }
+        html += `<p>${inline(line)}</p>`;
+    }
+    if (inList) html += '</ul>';
+    return html;
+}
+
+function extractHeadline(content) {
+    if (!content) return null;
+    for (const raw of content.split('\n')) {
+        const line = raw.trim();
+        const m = line.match(/^##\s+(?:Thread\s+\d+:\s*)?(.+?)\s*$/);
+        if (m) {
+            const title = m[1].trim();
+            if (title.toLowerCase() === 'lede') continue;
+            return title.replace(/^\*\*|\*\*$/g, '').trim();
+        }
+    }
+    return null;
+}
+
+(async () => {
+    const root = document.getElementById('main-root');
+    if (!id || isNaN(id)) {
+        root.innerHTML = `<div class="text-center py-16"><h1 class="font-serif text-3xl font-bold mb-4">Dispatch not found</h1><a href="/briefs" class="text-xs font-mono uppercase tracking-widest text-blue-700">Browse the archive &rarr;</a></div>`;
+        return;
+    }
+    try {
+        const r = await fetch('/api/digests/' + id);
+        if (r.status === 404) {
+            root.innerHTML = `<div class="text-center py-16"><h1 class="font-serif text-3xl font-bold mb-4">Dispatch not found</h1><p class="text-gray-500 mb-6">No edition with that ID.</p><a href="/briefs" class="text-xs font-mono uppercase tracking-widest text-blue-700">Browse the archive &rarr;</a></div>`;
+            return;
+        }
+        const d = await r.json();
+        const headline = extractHeadline(d.content) || 'Daily Dispatch';
+        const date = fmtLongDate(d.created_at);
+        document.title = `${headline} — ChipMonk`;
+
+        const prevBtn = d.prev
+            ? `<a href="/brief/${d.prev.id}" class="text-xs font-mono uppercase tracking-widest text-blue-700">&larr; ${fmtShortDate(d.prev.created_at)}</a>`
+            : `<span class="text-xs font-mono uppercase tracking-widest text-gray-300">&larr; older</span>`;
+        const nextBtn = d.next
+            ? `<a href="/brief/${d.next.id}" class="text-xs font-mono uppercase tracking-widest text-blue-700">${fmtShortDate(d.next.created_at)} &rarr;</a>`
+            : `<span class="text-xs font-mono uppercase tracking-widest text-gray-300">newer &rarr;</span>`;
+
+        root.innerHTML = `
+            <nav class="flex justify-between items-center mb-8 pb-3 border-b border-gray-200">
+                ${prevBtn}
+                <a href="/briefs" class="text-[10px] font-mono uppercase tracking-widest text-gray-500 hover:text-editorial-charcoal">All dispatches</a>
+                ${nextBtn}
+            </nav>
+            <header class="mb-10">
+                <span class="text-[10px] font-mono uppercase tracking-widest text-gray-500">Daily Dispatch</span>
+                <h1 class="font-serif text-4xl md:text-5xl font-extrabold tracking-tight leading-tight mt-2 mb-3">${escapeHtml(headline)}</h1>
+                <div class="text-sm font-mono text-gray-500">${date}</div>
+            </header>
+            <article class="summary-block">${renderMarkdown(d.content || '')}</article>
+            <nav class="flex justify-between items-center mt-12 pt-6 border-t border-gray-200">
+                ${prevBtn}
+                <a href="/briefs" class="text-[10px] font-mono uppercase tracking-widest text-gray-500 hover:text-editorial-charcoal">All dispatches</a>
+                ${nextBtn}
+            </nav>`;
+    } catch (e) {
+        root.innerHTML = `<div class="text-center py-12 text-red-700">Failed to load dispatch: ${escapeHtml(e.message)}</div>`;
+    }
+})();
+</script>
+</body>
+</html>
