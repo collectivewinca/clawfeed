@@ -248,6 +248,24 @@ async function loadBrief() {
     } catch {}
 }
 
+let TRACKERS = [];
+
+function trackerForMark(item) {
+    const hay = (item.title || '').toLowerCase();
+    for (const t of TRACKERS) {
+        for (const term of (t.terms || [])) {
+            const re = new RegExp(`\\b${term.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`);
+            if (re.test(hay)) return t;
+        }
+    }
+    return null;
+}
+
+function trackerPill(t) {
+    if (!t) return '';
+    return `<a href="/tracker/${t.slug}" class="text-[10px] font-mono uppercase tracking-widest text-white bg-editorial-charcoal px-2 py-0.5 hover:bg-gray-700 transition" title="View ${t.slug.toUpperCase()} tracker">${t.slug}</a>`;
+}
+
 async function loadFeed() {
     const feedEl = document.getElementById('feed');
     try {
@@ -258,11 +276,15 @@ async function loadFeed() {
             const src = (item.source_name || 'research').replace(/_/g, ' ');
             const isRealUrl = item.url && /^https?:\/\//.test(item.url);
             const noteSnip = item.note ? item.note.split('\n').filter(l => l.trim()).slice(0,2).join(' ').slice(0, 220) : '';
+            const tPill = trackerPill(trackerForMark(item));
             return `
             <article class="editorial-card p-6">
-                <div class="flex justify-between items-center mb-3">
-                    <span class="text-[10px] font-mono uppercase tracking-widest text-red-700">${src}</span>
-                    <span class="text-[10px] font-mono text-gray-400">${dt}</span>
+                <div class="flex justify-between items-center mb-3 gap-2">
+                    <div class="flex items-center gap-2 min-w-0">
+                        <span class="text-[10px] font-mono uppercase tracking-widest text-red-700 truncate">${src}</span>
+                        ${tPill}
+                    </div>
+                    <span class="text-[10px] font-mono text-gray-400 shrink-0">${dt}</span>
                 </div>
                 <h3 class="font-serif text-lg font-bold leading-snug mb-3">${item.title}</h3>
                 ${noteSnip ? `<p class="text-sm leading-relaxed text-gray-600 mb-4 line-clamp-3">${noteSnip}</p>` : ''}
@@ -274,10 +296,10 @@ async function loadFeed() {
 
 async function loadTrackers() {
     try {
-        const list = await (await fetch('/api/trackers')).json();
+        TRACKERS = await (await fetch('/api/trackers')).json();
         const el = document.getElementById('tracker-list');
-        if (!list.length) { el.innerHTML = '<div class="text-gray-400 italic">No trackers yet.</div>'; return; }
-        el.innerHTML = list.slice(0, 6).map(t => `
+        if (!TRACKERS.length) { el.innerHTML = '<div class="text-gray-400 italic">No trackers yet.</div>'; return; }
+        el.innerHTML = TRACKERS.slice(0, 6).map(t => `
             <a href="/tracker/${t.slug}" class="flex justify-between items-center py-1.5 border-b border-gray-100 last:border-b-0 group">
                 <span class="font-serif group-hover:text-gray-600">${t.slug.toUpperCase()}</span>
                 <span class="font-mono text-[10px] text-gray-500">${t.mark_count} stories</span>
@@ -354,8 +376,7 @@ document.getElementById('subscribe-form').addEventListener('submit', async (e) =
 });
 
 loadBrief();
-loadFeed();
-loadTrackers();
+loadTrackers().then(loadFeed);
 loadSources();
 loadAcceleratorShare();
 loadSubCount();

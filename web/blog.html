@@ -160,9 +160,28 @@ async function loadLatestBrief() {
     } catch {}
 }
 
+let TRACKERS = [];
+
+function trackerForMark(item) {
+    const hay = (item.title || '').toLowerCase();
+    for (const t of TRACKERS) {
+        for (const term of (t.terms || [])) {
+            const re = new RegExp(`\\b${term.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`);
+            if (re.test(hay)) return t;
+        }
+    }
+    return null;
+}
+
+function trackerPill(t) {
+    if (!t) return '';
+    return `<a href="/tracker/${t.slug}" class="text-[10px] font-mono uppercase tracking-[0.2em] text-white bg-editorial-charcoal px-2 py-0.5 hover:bg-gray-700 transition" title="View ${t.slug.toUpperCase()} tracker">${t.slug}</a>`;
+}
+
 async function loadTrackers() {
     try {
-        const list = (await (await fetch('/api/trackers')).json()).filter(t => t.summary);
+        TRACKERS = await (await fetch('/api/trackers')).json();
+        const list = TRACKERS.filter(t => t.summary);
         if (!list.length) return;
         document.getElementById('trackers').innerHTML = `
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -189,10 +208,12 @@ function renderInsights() {
         const src = (item.source_name || 'research').replace(/_/g, ' ');
         const isRealUrl = item.url && /^https?:\/\//.test(item.url);
         const noteHtml = item.note ? renderMarkdown(item.note) : '<p class="italic text-gray-400">Summary pending.</p>';
+        const tPill = trackerPill(trackerForMark(item));
         return `
             <article class="border-b border-gray-100 pb-12 last:border-b-0">
-                <div class="flex items-center gap-3 mb-3">
+                <div class="flex flex-wrap items-center gap-3 mb-3">
                     <span class="text-[10px] font-mono uppercase tracking-[0.2em] text-red-700 px-2 py-0.5 bg-red-50 border border-red-100">${src}</span>
+                    ${tPill}
                     <span class="text-[10px] font-mono text-gray-400">${dt} · score ${Math.round((item.relevance_score||0)*100)}%</span>
                 </div>
                 <h3 class="font-serif text-3xl font-bold leading-tight mb-4">${item.title}</h3>
@@ -243,8 +264,7 @@ document.getElementById('subscribe-form').addEventListener('submit', async (e) =
 });
 
 loadLatestBrief();
-loadTrackers();
-loadInsights();
+loadTrackers().then(loadInsights);
 loadSubCount();
 </script>
 </body>
