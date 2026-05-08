@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Companies | ChipMonk</title>
+    <meta name="description" content="The semiconductor and AI hardware companies tracked by ChipMonk — designers, foundries, equipment makers, and emerging accelerator vendors.">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;800;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script>tailwind.config={theme:{extend:{fontFamily:{serif:["Playfair Display","serif"],sans:["Inter","sans-serif"],mono:["JetBrains Mono","monospace"]},colors:{paper:"#FCFCFA","editorial-charcoal":"#121212"}}}};</script>
+    <style>
+        :root { --paper:#FCFCFA; --ink:#121212; --ink-soft:#334155; --muted:#64748B; --border:#E5E7EB; --accent:#2563EB; }
+        body { background: var(--paper); color: var(--ink); -webkit-font-smoothing: antialiased; font-family: Inter, sans-serif; }
+        .editorial-card { background: white; border: 1px solid var(--border); transition: border-color .15s; }
+        .editorial-card:hover { border-color: var(--ink); }
+        .nav-link { color: var(--ink-soft); font-weight: 500; transition: color .15s; }
+        .nav-link:hover { color: var(--ink); }
+        .filter-chip { display:inline-flex; align-items:center; padding:6px 14px; font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; border:1px solid var(--border); background:white; color:var(--ink-soft); cursor:pointer; transition:all .15s; font-family:'JetBrains Mono', monospace; }
+        .filter-chip:hover { border-color: var(--ink); color: var(--ink); }
+        .filter-chip.active { background: var(--ink); color: white; border-color: var(--ink); }
+        .tag-pill { display:inline-flex; align-items:center; padding:2px 8px; font-size:10px; font-weight:500; background:#F1F5F9; color:var(--ink-soft); border-radius:999px; font-family:'JetBrains Mono', monospace; }
+    </style>
+</head>
+<body class="bg-paper text-editorial-charcoal">
+    <header class="border-b border-gray-200 bg-white">
+        <div class="bg-paper border-b border-gray-200">
+            <div class="mx-auto max-w-7xl px-6 py-1.5 flex justify-between text-xs font-mono text-gray-500 uppercase tracking-wider">
+                <span id="today-date"></span>
+                <span>Network Status: Active</span>
+            </div>
+        </div>
+        <nav class="flex items-center justify-between px-6 lg:px-8 py-4 lg:py-6">
+            <a href="/" class="flex items-center gap-2">
+                <svg class="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="10" width="12" height="10" rx="2"/><circle cx="6.5" cy="8.5" r="1.5"/><circle cx="11.5" cy="8.5" r="1.5"/><path d="M15 14 C 22 14 22 4 17 3"/><line x1="3" y1="14" x2="1" y2="14"/><line x1="3" y1="17" x2="1" y2="17"/></svg>
+                <span class="hidden sm:inline text-xl font-serif font-semibold">ChipMonk</span>
+            </a>
+            <div class="flex items-center gap-4 md:gap-8 text-sm">
+                <a href="/blog" class="font-semibold nav-link">Insights</a>
+                <a href="/companies" class="font-semibold nav-link" style="color:var(--ink)">Companies</a>
+                <a href="/about" class="font-semibold nav-link">Market</a>
+            </div>
+        </nav>
+    </header>
+
+    <main class="max-w-6xl mx-auto px-6 lg:px-8 pt-10 pb-20">
+        <header class="border-b-4 border-editorial-charcoal pb-4 mb-8">
+            <span class="text-[10px] font-mono uppercase tracking-widest text-gray-500">The Catalog</span>
+            <h1 class="font-serif text-5xl md:text-6xl font-extrabold tracking-tight mt-1">Companies</h1>
+            <p class="text-gray-500 mt-3 max-w-2xl">The semiconductor and AI-hardware companies ChipMonk tracks &mdash; chip designers, foundries, equipment makers, and accelerator vendors. <span id="meta-summary" class="font-mono text-xs"></span></p>
+        </header>
+
+        <div id="filters" class="flex flex-wrap gap-2 mb-8">
+            <button class="filter-chip active" data-sector="">All</button>
+            <button class="filter-chip" data-sector="ai">AI</button>
+            <button class="filter-chip" data-sector="chip">Chip</button>
+            <button class="filter-chip" data-sector="semiconductor">Semiconductor</button>
+        </div>
+
+        <div id="company-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="editorial-card h-32 animate-pulse" style="background:#F1F5F9;border-color:transparent;"></div>
+            <div class="editorial-card h-32 animate-pulse" style="background:#F1F5F9;border-color:transparent;"></div>
+            <div class="editorial-card h-32 animate-pulse" style="background:#F1F5F9;border-color:transparent;"></div>
+            <div class="editorial-card h-32 animate-pulse" style="background:#F1F5F9;border-color:transparent;"></div>
+        </div>
+
+        <p class="text-[10px] font-mono uppercase tracking-widest text-gray-400 mt-10">
+            Catalog data <a href="https://ve-stock.exe.xyz/api/chipmonk/companies" target="_blank" rel="noopener" class="text-blue-700">via the ChipMonk catalog API</a>
+        </p>
+    </main>
+
+    <footer class="border-t border-gray-200">
+        <div class="max-w-7xl mx-auto px-6 py-10 flex flex-col md:flex-row justify-between items-center gap-4">
+            <span class="text-xs text-gray-500">ChipMonk &middot; Silicon Intelligence Hub</span>
+            <div class="flex items-center gap-5 text-[10px] font-mono uppercase tracking-wider text-gray-500">
+                <a href="/blog.rss" class="nav-link">RSS</a>
+                <a href="/blog" class="nav-link">Insights</a>
+                <a href="/companies" class="nav-link">Companies</a>
+                <a href="/about" class="nav-link">Market</a>
+                <a href="/sitemap.xml" class="nav-link">Sitemap</a>
+            </div>
+            <div class="text-[10px] font-mono text-gray-400">&copy; 2026 ChipMonk</div>
+        </div>
+    </footer>
+
+<script>
+const CATALOG_API = 'https://ve-stock.exe.xyz/api/chipmonk/companies?limit=50';
+
+document.getElementById('today-date').textContent =
+    new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+let allCompanies = [];
+let activeSector = '';
+
+function escapeHtml(s) {
+    return String(s || '').replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' })[c] || c);
+}
+
+function sectorPill(sector) {
+    if (!sector) return '';
+    const cls = {
+        ai: 'bg-blue-50 text-blue-700',
+        chip: 'bg-amber-50 text-amber-700',
+        semiconductor: 'bg-emerald-50 text-emerald-700',
+    }[sector] || 'bg-gray-100 text-gray-700';
+    return `<span class="text-[10px] font-mono uppercase tracking-widest px-2 py-0.5 ${cls}">${escapeHtml(sector)}</span>`;
+}
+
+function renderCompany(c) {
+    const tags = Array.isArray(c.tags) ? c.tags : [];
+    const tagHtml = tags.slice(0, 4).map(t => `<span class="tag-pill">${escapeHtml(t)}</span>`).join(' ');
+    const websiteHost = c.website ? c.website.replace(/^https?:\/\//, '').replace(/\/$/, '') : '';
+    return `
+        <article class="editorial-card p-5">
+            <div class="flex items-start justify-between gap-3 mb-2">
+                <div class="min-w-0">
+                    <div class="flex items-center gap-2 mb-1">
+                        ${c.symbol ? `<span class="text-[10px] font-mono font-bold tracking-widest text-editorial-charcoal">${escapeHtml(c.symbol)}</span>` : ''}
+                        ${sectorPill(c.sector)}
+                    </div>
+                    <h3 class="font-serif text-xl font-bold leading-snug">${escapeHtml(c.name || '')}</h3>
+                </div>
+            </div>
+            ${c.description ? `<p class="text-sm text-gray-600 leading-relaxed mt-2 mb-3">${escapeHtml(c.description)}</p>` : ''}
+            ${tagHtml ? `<div class="flex flex-wrap gap-1.5 mb-3">${tagHtml}</div>` : ''}
+            ${c.website ? `<a href="${escapeHtml(c.website)}" target="_blank" rel="noopener" class="text-xs font-mono uppercase tracking-widest text-blue-700">${escapeHtml(websiteHost)} &rarr;</a>` : ''}
+        </article>`;
+}
+
+function render() {
+    const grid = document.getElementById('company-grid');
+    const filtered = activeSector ? allCompanies.filter(c => c.sector === activeSector) : allCompanies;
+    if (!filtered.length) {
+        grid.className = 'grid grid-cols-1';
+        grid.innerHTML = '<div class="editorial-card p-8 text-gray-500 italic">No companies in this sector yet.</div>';
+        return;
+    }
+    grid.className = 'grid grid-cols-1 md:grid-cols-2 gap-4';
+    grid.innerHTML = filtered.map(renderCompany).join('');
+    document.getElementById('meta-summary').textContent =
+        ` &mdash; ${filtered.length} ${activeSector ? activeSector.toUpperCase() + ' ' : ''}${filtered.length === 1 ? 'company' : 'companies'} tracked.`;
+    document.getElementById('meta-summary').innerHTML =
+        ` &mdash; ${filtered.length} ${activeSector ? activeSector.toUpperCase() + ' ' : ''}${filtered.length === 1 ? 'company' : 'companies'} tracked.`;
+}
+
+document.querySelectorAll('.filter-chip').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.filter-chip').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        activeSector = btn.dataset.sector;
+        render();
+    });
+});
+
+(async () => {
+    try {
+        const r = await fetch(CATALOG_API);
+        const d = await r.json();
+        allCompanies = Array.isArray(d.records) ? d.records : [];
+        // sort: AI first, then chip, then semiconductor; alpha within each
+        const order = { ai: 0, chip: 1, semiconductor: 2 };
+        allCompanies.sort((a, b) => {
+            const oa = order[a.sector] ?? 99;
+            const ob = order[b.sector] ?? 99;
+            if (oa !== ob) return oa - ob;
+            return (a.name || '').localeCompare(b.name || '');
+        });
+        render();
+    } catch (e) {
+        document.getElementById('company-grid').innerHTML =
+            '<div class="editorial-card p-8 text-red-700 italic">Failed to load the catalog. Try again in a moment.</div>';
+    }
+})();
+</script>
+</body>
+</html>

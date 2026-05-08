@@ -430,6 +430,7 @@ Sitemap: ${PUBLIC_BASE_URL}/sitemap.xml
     const urls = [
       { loc: `${PUBLIC_BASE_URL}/`, priority: '1.0', changefreq: 'daily' },
       { loc: `${PUBLIC_BASE_URL}/blog`, priority: '0.9', changefreq: 'daily' },
+      { loc: `${PUBLIC_BASE_URL}/companies`, priority: '0.7', changefreq: 'weekly' },
       { loc: `${PUBLIC_BASE_URL}/about`, priority: '0.5', changefreq: 'monthly' },
       ...trackerSlugs.map(slug => ({
         loc: `${PUBLIC_BASE_URL}/tracker/${slug}`,
@@ -487,11 +488,12 @@ ${items}
   }
 
   // ── SPA Routes ──
-  if (req.method === 'GET' && (path === '/' || path === '/dashboard' || path === '/blog' || path === '/about' || path.startsWith('/tracker/') || path === '/tracker')) {
+  if (req.method === 'GET' && (path === '/' || path === '/dashboard' || path === '/blog' || path === '/about' || path === '/companies' || path.startsWith('/tracker/') || path === '/tracker')) {
     try {
       let file = 'showcase.html';
       if (path === '/blog') file = 'blog.html';
       else if (path === '/about') file = 'about.html';
+      else if (path === '/companies') file = 'companies.html';
       else if (path === '/dashboard') file = 'dashboard.html';
       else if (path === '/tracker' || path.startsWith('/tracker/')) file = 'tracker.html';
       const html = readFileSync(join(ROOT, 'web', file), 'utf8');
