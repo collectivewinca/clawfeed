@@ -171,14 +171,7 @@
 
                 <figure class="py-4 border-b border-gray-200">
                     <figcaption class="text-[10px] mono uppercase tracking-widest text-gray-500 mb-3">Accelerator Share</figcaption>
-                    <div class="relative h-9 w-full bg-gray-100 flex">
-                        <div class="h-full bg-editorial-charcoal flex items-center px-3" style="width:80%;">
-                            <span class="text-[10px] text-white font-bold">NVIDIA · 80%</span>
-                        </div>
-                        <div class="h-full bg-gray-300 flex items-center px-2" style="width:20%;">
-                            <span class="text-[10px] text-gray-700 font-bold">OTHER</span>
-                        </div>
-                    </div>
+                    <div id="accelerator-share-bar" class="relative h-9 w-full bg-gray-100 flex"></div>
                 </figure>
 
                 <div class="editorial-card p-4 bg-gray-50 border-gray-100">
@@ -305,6 +298,27 @@ async function loadSources() {
     } catch {}
 }
 
+async function loadAcceleratorShare() {
+    const target = document.getElementById('accelerator-share-bar');
+    if (!target) return;
+    const FALLBACK = [{ label: 'NVIDIA', share: 80 }, { label: 'Other', share: 20 }];
+    let segs = FALLBACK;
+    try {
+        const r = await fetch('/api/config/accelerator-share');
+        const d = await r.json();
+        if (d && Array.isArray(d.segments) && d.segments.length) segs = d.segments;
+    } catch {}
+    const otherTones = ['bg-gray-300', 'bg-gray-400', 'bg-gray-500', 'bg-gray-600'];
+    target.innerHTML = segs.map((s, i) => {
+        const lead = i === 0;
+        const bg = lead ? 'bg-editorial-charcoal' : (otherTones[(i - 1) % otherTones.length]);
+        const text = lead ? 'text-white' : 'text-gray-800';
+        const label = lead ? `${s.label} · ${s.share}%` : s.label.toUpperCase();
+        const pad = lead ? 'px-3' : 'px-2';
+        return `<div class="h-full ${bg} flex items-center ${pad}" style="width:${s.share}%;"><span class="text-[10px] ${text} font-bold whitespace-nowrap">${label}</span></div>`;
+    }).join('');
+}
+
 async function loadSubCount() {
     try {
         const d = await (await fetch('/api/subscribers/count')).json();
@@ -343,6 +357,7 @@ loadBrief();
 loadFeed();
 loadTrackers();
 loadSources();
+loadAcceleratorShare();
 loadSubCount();
 </script>
 </body>

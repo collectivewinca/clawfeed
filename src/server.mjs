@@ -510,6 +510,36 @@ ${items}
       catch { return json(res, { error: 'parse-failed' }, 500); }
     }
 
+    // ── Accelerator Share (sidebar widget on /) ──
+    const ACCEL_SHARE_DEFAULT = { segments: [{ label: 'NVIDIA', share: 80 }, { label: 'Other', share: 20 }] };
+    if (req.method === 'GET' && path === '/api/config/accelerator-share') {
+      const row = db.prepare("SELECT value FROM config WHERE key = ?").get('accelerator-share');
+      if (!row) return json(res, ACCEL_SHARE_DEFAULT);
+      try { return json(res, JSON.parse(row.value)); }
+      catch { return json(res, ACCEL_SHARE_DEFAULT); }
+    }
+    if (req.method === 'PUT' && path === '/api/config/accelerator-share') {
+      if (!req.user) return json(res, { error: 'not authenticated' }, 401);
+      const body = await parseBody(req);
+      const segs = Array.isArray(body && body.segments) ? body.segments : null;
+      if (!segs || segs.length < 1 || segs.length > 5) {
+        return json(res, { error: 'segments must be an array of 1–5 entries' }, 400);
+      }
+      const cleaned = [];
+      let total = 0;
+      for (const s of segs) {
+        const label = String((s && s.label) || '').trim();
+        const share = Number(s && s.share);
+        if (!label || label.length > 30) return json(res, { error: 'each segment needs a label (1–30 chars)' }, 400);
+        if (!Number.isFinite(share) || share < 0 || share > 100) return json(res, { error: 'share must be a number 0–100' }, 400);
+        cleaned.push({ label, share: Math.round(share) });
+        total += Math.round(share);
+      }
+      if (total !== 100) return json(res, { error: `shares must sum to 100 (got ${total})` }, 400);
+      setConfig(db, 'accelerator-share', { segments: cleaned });
+      return json(res, { segments: cleaned });
+    }
+
     // ── Marks Endpoints ──
     if (req.method === 'GET' && path === '/api/showcase') {
       return json(res, listMarks(db, { status: 'approved', publicOnly: true }));
