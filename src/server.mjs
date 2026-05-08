@@ -407,6 +407,50 @@ const server = createServer(async (req, res) => {
     return json(res, { status: 'ok' });
   }
 
+  // ── robots.txt ──
+  if (req.method === 'GET' && path === '/robots.txt') {
+    const body = `User-agent: *
+Allow: /
+Disallow: /dashboard
+Disallow: /admin/
+Disallow: /api/
+
+Sitemap: ${PUBLIC_BASE_URL}/sitemap.xml
+`;
+    res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end(body);
+    return;
+  }
+
+  // ── sitemap.xml (public pages + each tracker) ──
+  if (req.method === 'GET' && path === '/sitemap.xml') {
+    const today = new Date().toISOString().slice(0, 10);
+    const trackers = db.prepare("SELECT key FROM config WHERE key LIKE 'tracker:%'").all();
+    const trackerSlugs = trackers.map(r => r.key.slice(8));
+    const urls = [
+      { loc: `${PUBLIC_BASE_URL}/`, priority: '1.0', changefreq: 'daily' },
+      { loc: `${PUBLIC_BASE_URL}/blog`, priority: '0.9', changefreq: 'daily' },
+      { loc: `${PUBLIC_BASE_URL}/about`, priority: '0.5', changefreq: 'monthly' },
+      ...trackerSlugs.map(slug => ({
+        loc: `${PUBLIC_BASE_URL}/tracker/${slug}`,
+        priority: '0.7',
+        changefreq: 'weekly'
+      })),
+    ];
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${urls.map(u => `  <url>
+    <loc>${u.loc}</loc>
+    <lastmod>${today}</lastmod>
+    <changefreq>${u.changefreq}</changefreq>
+    <priority>${u.priority}</priority>
+  </url>`).join('\n')}
+</urlset>`;
+    res.writeHead(200, { 'Content-Type': 'application/xml; charset=utf-8' });
+    res.end(xml);
+    return;
+  }
+
   // ── RSS Feed (daily Briefs) ──
   if (req.method === 'GET' && (path === '/blog.rss' || path === '/rss' || path === '/feed.xml')) {
     const digests = listDigests(db, { type: 'daily', limit: 30 });
