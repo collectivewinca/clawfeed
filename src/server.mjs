@@ -7,15 +7,22 @@ import { fileURLToPath } from 'url';
 import { randomBytes, createHmac, timingSafeEqual } from 'crypto';
 import { lookup } from 'dns/promises';
 import { isIP } from 'net';
-import { getDb, listDigests, getDigest, createDigest, listMarks, createMark, deleteMark, getConfig, setConfig, upsertUser, createSession, getSession, deleteSession, listSources, getSource, createSource, updateSource, deleteSource, getSourceByTypeConfig, getUserBySlug, listDigestsByUser, countDigestsByUser, createPack, getPack, getPackBySlug, listPacks, incrementPackInstall, deletePack, listSubscriptions, subscribe, unsubscribe, bulkSubscribe, isSubscribed, createFeedback, getUserFeedback, getAllFeedback, replyToFeedback, updateFeedbackStatus, markFeedbackRead, getUnreadFeedbackCount } from './db.mjs';
-import { loadEnv, getEnv } from './utils/env.mjs';
-import { validateString, validateNumber, validateBoolean } from './utils/validation.mjs';
+import { getDb, listDigests, getDigest, createDigest, listMarks, listMarkSources, createMark, deleteMark, updateMarkStatus, getConfig, setConfig, upsertUser, createSession, getSession, deleteSession, listSources, getSource, createSource, updateSource, deleteSource, getSourceByTypeConfig, getUserBySlug, listDigestsByUser, countDigestsByUser, createPack, getPack, getPackBySlug, listPacks, incrementPackInstall, deletePack, listSubscriptions, subscribe, unsubscribe, bulkSubscribe, isSubscribed, createFeedback, getUserFeedback, getAllFeedback, replyToFeedback, updateFeedbackStatus, markFeedbackRead, getUnreadFeedbackCount, addSubscriber, listSubscribers, countSubscribers, unsubscribeNewsletter } from './db.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
 
-// Load shared environment
-const env = loadEnv();
+// ── Load .env ──
+const envPath = join(ROOT, '.env');
+const env = {};
+if (existsSync(envPath)) {
+  for (const line of readFileSync(envPath, 'utf8').split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const eq = trimmed.indexOf('=');
+    if (eq > 0) env[trimmed.slice(0, eq)] = trimmed.slice(eq + 1);
+  }
+}
 
 const GOOGLE_CLIENT_ID = env.GOOGLE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = env.GOOGLE_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET;
@@ -24,20 +31,20 @@ const API_KEY = env.API_KEY || process.env.API_KEY || '';
 const ALLOWED_ORIGINS = (env.ALLOWED_ORIGINS || process.env.ALLOWED_ORIGINS || 'localhost').split(',').map(o => o.trim()).filter(Boolean);
 const PORT = process.env.DIGEST_PORT || env.DIGEST_PORT || 8767;
 const OAUTH_STATE_SECRET = env.OAUTH_STATE_SECRET || process.env.OAUTH_STATE_SECRET || SESSION_SECRET || API_KEY || 'dev-state-secret';
+const CLOUDFLARE_ACCOUNT_ID = env.CLOUDFLARE_ACCOUNT_ID || process.env.CLOUDFLARE_ACCOUNT_ID || '';
+const CLOUDFLARE_EMAIL_TOKEN = env.CLOUDFLARE_EMAIL_TOKEN || process.env.CLOUDFLARE_EMAIL_TOKEN || '';
+const EMAIL_FROM = env.EMAIL_FROM || process.env.EMAIL_FROM || '';
+const EMAIL_REPLY_TO = env.EMAIL_REPLY_TO || process.env.EMAIL_REPLY_TO || '';
+const NEWSLETTER_BRAND = env.NEWSLETTER_BRAND || 'ChipMonk';
+const PUBLIC_BASE_URL = env.PUBLIC_BASE_URL || 'https://chipmonk.tech';
 const MAX_BODY_BYTES = 1024 * 1024;
 const DB_PATH = process.env.DIGEST_DB || join(ROOT, 'data', 'digest.db');
 
 mkdirSync(join(ROOT, 'data'), { recursive: true });
 const db = getDb(DB_PATH);
 
-function json(res, data, status = 200, cacheMaxAge = 0) {
-  const headers = { 'Content-Type': 'application/json' };
-  if (cacheMaxAge > 0) {
-    headers['Cache-Control'] = `public, max-age=${cacheMaxAge}`;
-  } else {
-    headers['Cache-Control'] = 'no-cache, no-store, must-revalidate';
-  }
-  res.writeHead(status, headers);
+function json(res, data, status = 200) {
+  res.writeHead(status, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify(data));
 }
 
@@ -189,9 +196,175 @@ function httpsPost(url, body) {
   });
 }
 
-// Auth middleware: attach req.user if valid session
+function constantTimeKeyMatch(provided, expected) {
+  if (!provided || !expected || provided.length !== expected.length) return false;
+  return timingSafeEqual(Buffer.from(provided), Buffer.from(expected));
+}
+
+function adminCookieToken() {
+  return createHmac('sha256', API_KEY).update('cm_admin:v1').digest('hex');
+}
+
+// ── Cloudflare Email Sending ──
+// POSTs to api.cloudflare.com/.../email/sending/send. Returns {ok, status, body}.
+// Same endpoint Zeus uses for digest highlights — token has Account · Email Sending · Send scope.
+async function sendCloudflareEmail({ to, subject, html, text }) {
+  if (!CLOUDFLARE_ACCOUNT_ID || !CLOUDFLARE_EMAIL_TOKEN || !EMAIL_FROM) {
+    return { ok: false, error: 'cf_email_not_configured' };
+  }
+  if (!to || !subject) return { ok: false, error: 'missing_to_or_subject' };
+  const url = `https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/email/sending/send`;
+  try {
+    const r = await fetch(url, {
+      method: 'POST',
+      signal: AbortSignal.timeout(15000),
+      headers: {
+        'Authorization': `Bearer ${CLOUDFLARE_EMAIL_TOKEN}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        from: EMAIL_FROM,
+        ...(EMAIL_REPLY_TO ? { reply_to: EMAIL_REPLY_TO } : {}),
+        to, subject, html: html || '', text: text || ''
+      })
+    });
+    let body = null;
+    try { body = await r.json(); } catch {}
+    return { ok: r.ok && body && body.success !== false, status: r.status, body };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+}
+
+// Strip llama3.2:1b's chronic preface/meta-commentary patterns from a summary.
+// Conservative: only removes leading boilerplate lines and trailing meta notes,
+// never touches paragraph content. Idempotent.
+function cleanSummary(s, title = '') {
+  if (!s) return s;
+  let out = s.trim();
+
+  // Strip lines that are just the title (the model loves to repeat it as a heading).
+  if (title) {
+    const norm = (x) => x.toLowerCase().replace(/[^\w\s]/g, ' ').replace(/\s+/g, ' ').trim();
+    const t = norm(title);
+    if (t.length >= 8) {
+      out = out.split('\n').filter(line => {
+        const l = norm(line);
+        if (!l) return true; // keep blank lines for paragraph breaks
+        // drop the line if it IS the title or contains the title as ≥80% of its content
+        if (l === t) return false;
+        if (l.length < t.length * 1.3 && l.includes(t)) return false;
+        return true;
+      }).join('\n');
+    }
+  }
+
+  // Patterns the model leaks at the START of its response.
+  const leadingJunk = [
+    /^Here (?:are|is)[^\n]*(?:paragraphs?|brief|summary|breakdown|analysis|outline)[^\n]*[:.]?\s*/i,
+    /^Below (?:are|is)[^\n]*[:.]?\s*/i,
+    /^I'?ll (?:provide|write|give|share|prepare|outline)[^\n]*[:.]?\s*/i,
+    /^Sure[,!.][^\n]*[:.]?\s*/i,
+    /^Certainly[,!.][^\n]*[:.]?\s*/i,
+    /^Of course[,!.][^\n]*[:.]?\s*/i,
+    /^As (?:chip designers|AI hardware|engineers|professionals|investors|requested)[^\n]*[,.][^\n]*\s*/i,
+    /^For (?:chip designers|AI hardware|the technical audience)[^\n]*[,.][^\n]*\s*/i,
+    /^This (?:brief|summary|article|piece) (?:is|will|aims|focuses)[^\n]*\s*/i,
+    /^The following[^\n]*[:.]?\s*/i,
+    /^Begin the brief now[:.]?\s*/i,
+  ];
+  // Run multiple passes — model sometimes stacks two prefaces.
+  for (let pass = 0; pass < 4; pass++) {
+    let changed = false;
+    for (const re of leadingJunk) {
+      const next = out.replace(re, '');
+      if (next !== out) { out = next.trimStart(); changed = true; }
+    }
+    if (!changed) break;
+  }
+
+  // Trailing meta blocks the model adds about its own output.
+  const trailingJunk = [
+    /\n\s*(?:Note|Notes|Disclaimer)\s*[:.][\s\S]*$/i,
+    /\n\s*(?:I (?:have|will) (?:stopped|stop|paused|ended|finished|concluded))[^\n]*[\s\S]*$/i,
+    /\n\s*This (?:summary|brief|article) (?:is|was) (?:based on|generated|produced|written)[^\n]*[\s\S]*$/i,
+    /\n\s*\*?\s*The article does not (?:mention|cover|discuss)[^\n]*[\s\S]*$/i,
+    /\n\s*Let me know if[^\n]*[\s\S]*$/i,
+    /\n\s*Hope this helps[^\n]*[\s\S]*$/i,
+  ];
+  for (const re of trailingJunk) out = out.replace(re, '');
+
+  out = out.trim();
+
+  // If the model produced an incomplete trailing sentence (no terminal
+  // punctuation in the last line), trim back to the last finished sentence
+  // so we don't display half-thoughts.
+  if (out.length > 80) {
+    const lastChar = out.slice(-1);
+    if (!/[.!?")\]]/.test(lastChar)) {
+      const lastTerminator = out.search(/[.!?][")\]]?\s*[A-Z][^.!?]*$/);
+      if (lastTerminator > 80) {
+        // Cut back to the last complete sentence terminator before the dangling fragment.
+        const m = out.match(/^([\s\S]*[.!?][")\]]?)(?:\s+[^.!?]*)?$/);
+        if (m && m[1].length > 80) out = m[1].trim();
+      }
+    }
+  }
+  return out;
+}
+
+function welcomeEmail() {
+  const subject = `Welcome to ${NEWSLETTER_BRAND}`;
+  const text = `You're on the list.
+
+${NEWSLETTER_BRAND} sends one weekly silicon dispatch — primary-source pieces on AI accelerators, fab capacity, and packaging.
+
+Latest insights: ${PUBLIC_BASE_URL}/blog
+Market overview: ${PUBLIC_BASE_URL}/about
+
+If this wasn't you, just ignore this email and you'll be unsubscribed automatically next time.
+
+— ${NEWSLETTER_BRAND}`;
+  const html = `<!doctype html><html><body style="font-family:-apple-system,BlinkMacSystemFont,'Inter',sans-serif;background:#FAFAFA;color:#0F172A;margin:0;padding:32px 16px;">
+<div style="max-width:560px;margin:0 auto;background:#fff;border:1px solid #E5E7EB;border-radius:12px;padding:32px;">
+  <div style="font-weight:700;font-size:18px;letter-spacing:-0.01em;margin-bottom:24px;">${NEWSLETTER_BRAND}</div>
+  <h1 style="font-size:24px;font-weight:700;letter-spacing:-0.02em;margin:0 0 16px;">You're on the list.</h1>
+  <p style="font-size:15px;line-height:1.6;color:#334155;margin:0 0 16px;">
+    ${NEWSLETTER_BRAND} sends one weekly silicon dispatch — primary-source pieces on AI accelerators, fab capacity, and packaging, with our notes.
+  </p>
+  <p style="font-size:15px;line-height:1.6;color:#334155;margin:0 0 24px;">
+    While you wait, here's what's already brewing:
+  </p>
+  <p style="margin:0 0 12px;"><a href="${PUBLIC_BASE_URL}/blog" style="color:#2563EB;text-decoration:none;font-weight:600;">→ Latest insights</a></p>
+  <p style="margin:0 0 32px;"><a href="${PUBLIC_BASE_URL}/about" style="color:#2563EB;text-decoration:none;font-weight:600;">→ Market overview</a></p>
+  <hr style="border:none;border-top:1px solid #E5E7EB;margin:24px 0;">
+  <p style="font-size:12px;color:#94A3B8;line-height:1.6;margin:0;">
+    Didn't sign up? Ignore this email — you'll be unsubscribed automatically.
+  </p>
+</div>
+</body></html>`;
+  return { subject, text, html };
+}
+
+// Auth middleware: attach req.user if valid session.
+// When GOOGLE_CLIENT_ID is unset, admin is gated behind API_KEY: clients
+// present it as either an `X-Admin-Key` header (raw key, server-to-server)
+// or a `cm_admin` cookie holding a derived token from /admin/login (browser).
+// Cookie holds HMAC(API_KEY, "cm_admin:v1") — never the raw key.
 function attachUser(req) {
   const cookies = parseCookies(req);
+  if (!GOOGLE_CLIENT_ID) {
+    if (!API_KEY) return;
+    let authed = false;
+    const headerKey = req.headers['x-admin-key'] || '';
+    if (headerKey && constantTimeKeyMatch(headerKey, API_KEY)) authed = true;
+    const cookieTok = cookies['cm_admin'] || '';
+    if (!authed && cookieTok && constantTimeKeyMatch(cookieTok, adminCookieToken())) authed = true;
+    if (authed) {
+      req.user = { id: 1, email: 'admin@chipmonk.tech', name: 'ChipMonk Admin', avatar: 'https://github.com/identicons/admin.png', slug: 'admin' };
+    }
+    return;
+  }
   const sessionVal = cookies[COOKIE_NAME];
   if (sessionVal) {
     const sess = getSession(db, sessionVal);
@@ -204,120 +377,9 @@ function attachUser(req) {
 
 function _digestTitle(d, ca) {
   const dt = new Date(ca.includes('+') ? ca : ca.replace(' ', 'T') + 'Z');
-  const timeStr = dt.toISOString().replace('T', ' ').slice(0, 16);
-  const icons = { '4h': '☀️', daily: '📰', weekly: '📅', monthly: '📊' };
-  const labels = { '4h': 'Sliver 4H', daily: 'Sliver Daily', weekly: 'Sliver Weekly', monthly: 'Sliver Monthly' };
-  return `${icons[d.type] || '📝'} ${labels[d.type] || 'Sliver'} | ${timeStr} UTC`;
-}
-
-// ── Source URL resolver ──
-async function httpFetch(url, timeout = 5000, redirectsLeft = 3) {
-  await assertSafeFetchUrl(url);
-  return new Promise((resolve, reject) => {
-    const mod = url.startsWith('https') ? https : http;
-    const r = mod.get(url, { headers: { 'User-Agent': 'AI-Digest/1.0', 'Accept': 'text/html,application/xhtml+xml,application/xml,application/json,*/*' } }, async (resp) => {
-      try {
-        if (resp.statusCode >= 300 && resp.statusCode < 400 && resp.headers.location) {
-          clearTimeout(timer);
-          if (redirectsLeft <= 0) return reject(new Error('too many redirects'));
-          const nextUrl = new URL(resp.headers.location, url).toString();
-          return resolve(await httpFetch(nextUrl, Math.max(1000, timeout - 1000), redirectsLeft - 1));
-        }
-        let data = '';
-        resp.on('data', c => { data += c; if (data.length > 200000) resp.destroy(); });
-        resp.on('end', () => { clearTimeout(timer); resolve({ contentType: resp.headers['content-type'] || '', body: data }); });
-      } catch (e) {
-        clearTimeout(timer);
-        reject(e);
-      }
-    });
-    const timer = setTimeout(() => { r.destroy(); reject(new Error('timeout')); }, timeout);
-    r.on('error', (e) => { clearTimeout(timer); reject(e); });
-  });
-}
-
-function extractRssPreview(xml) {
-  const items = [];
-  const re = /<item[^>]*>([\s\S]*?)<\/item>|<entry[^>]*>([\s\S]*?)<\/entry>/gi;
-  let m;
-  while ((m = re.exec(xml)) && items.length < 5) {
-    const block = m[1] || m[2];
-    const t = block.match(/<title[^>]*>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?<\/title>/i);
-    const l = block.match(/<link[^>]*href=["']([^"']+)["']/i) || block.match(/<link[^>]*>(.*?)<\/link>/i);
-    items.push({ title: t ? t[1].trim() : '(untitled)', url: l ? l[1].trim() : '' });
-  }
-  return items;
-}
-
-async function resolveSourceUrl(url) {
-  const u = url.toLowerCase();
-
-  // Twitter/X
-  if (u.includes('x.com') || u.includes('twitter.com')) {
-    const listMatch = url.match(/\/i\/lists\/(\d+)/);
-    if (listMatch) {
-      return { name: `X List ${listMatch[1]}`, type: 'twitter_list', config: { list_url: url }, icon: '🐦' };
-    }
-    const handleMatch = url.match(/(?:x\.com|twitter\.com)\/(@?[A-Za-z0-9_]+)/);
-    if (handleMatch && !['i','search','explore','home','notifications','messages','settings'].includes(handleMatch[1].toLowerCase())) {
-      const handle = handleMatch[1].replace(/^@/, '');
-      return { name: `@${handle}`, type: 'twitter_feed', config: { handle: `@${handle}` }, icon: '🐦' };
-    }
-    return { name: 'X Feed', type: 'twitter_feed', config: { handle: url }, icon: '🐦' };
-  }
-
-  // Reddit
-  const redditMatch = url.match(/reddit\.com\/r\/([A-Za-z0-9_]+)/);
-  if (redditMatch) {
-    return { name: `r/${redditMatch[1]}`, type: 'reddit', config: { subreddit: redditMatch[1], sort: 'hot', limit: 20 }, icon: '👽' };
-  }
-
-  // GitHub Trending
-  if (u.includes('github.com/trending')) {
-    const langMatch = url.match(/\/trending\/([a-z0-9+#.-]+)/i);
-    const lang = langMatch ? langMatch[1] : '';
-    return { name: `GitHub Trending${lang ? ' - ' + lang : ''}`, type: 'github_trending', config: { language: lang || 'all', since: 'daily' }, icon: '⭐' };
-  }
-
-  // Hacker News
-  if (u.includes('news.ycombinator.com')) {
-    return { name: 'Hacker News', type: 'hackernews', config: { filter: 'top', min_score: 100 }, icon: '🔶' };
-  }
-
-  // Fetch the URL to detect content type
-  const resp = await httpFetch(url);
-  const ct = resp.contentType.toLowerCase();
-  const body = resp.body;
-
-  // RSS/Atom
-  if (ct.includes('xml') || ct.includes('rss') || ct.includes('atom') || body.trimStart().startsWith('<?xml') || body.includes('<rss') || body.includes('<feed')) {
-    if (body.includes('<rss') || body.includes('<feed') || body.includes('<channel')) {
-      const titleMatch = body.match(/<title[^>]*>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?<\/title>/);
-      const name = titleMatch ? titleMatch[1].trim() : new URL(url).hostname;
-      const preview = extractRssPreview(body);
-      return { name, type: 'rss', config: { url }, icon: '📡', preview };
-    }
-  }
-
-  // JSON Feed
-  if (ct.includes('json') || body.trimStart().startsWith('{')) {
-    try {
-      const j = JSON.parse(body);
-      if (j.version && j.version.includes('jsonfeed')) {
-        const preview = (j.items || []).slice(0, 5).map(i => ({ title: i.title || '(untitled)', url: i.url }));
-        return { name: j.title || new URL(url).hostname, type: 'digest_feed', config: { url }, icon: '📰', preview };
-      }
-    } catch {}
-  }
-
-  // HTML - extract title, treat as website
-  if (ct.includes('html') || body.includes('<html') || body.includes('<!DOCTYPE')) {
-    const titleMatch = body.match(/<title[^>]*>(.*?)<\/title>/is);
-    const name = titleMatch ? titleMatch[1].trim().replace(/\s+/g, ' ').slice(0, 100) : new URL(url).hostname;
-    return { name, type: 'website', config: { url }, icon: '🌐' };
-  }
-
-  throw new Error('Cannot detect source type');
+  const timeStr = dt.toLocaleString('en-US', { timeZone: 'UTC', year: 'numeric', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
+  const labels = { '4h': '4H Brief', daily: 'Daily Brief', weekly: 'Weekly Brief', monthly: 'Monthly Brief' };
+  return `${labels[d.type] || 'ChipMonk'} · ${timeStr} UTC`;
 }
 
 const server = createServer(async (req, res) => {
@@ -327,82 +389,58 @@ const server = createServer(async (req, res) => {
   if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
 
   let { path, params } = parseUrl(req.url);
+  console.log('[request]', req.method, req.url, '-> path:', path);
 
-  // ── Health check (no auth required) ──
+  // ── Health check ──
   if (req.method === 'GET' && (path === '/api/health' || path === '/health')) {
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ status: 'ok' }));
+    return json(res, { status: 'ok' });
+  }
+
+  // ── RSS Feed (daily Briefs) ──
+  if (req.method === 'GET' && (path === '/blog.rss' || path === '/rss' || path === '/feed.xml')) {
+    const digests = listDigests(db, { type: 'daily', limit: 30 });
+    const escape = s => String(s || '').replace(/[<>&"']/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[c]));
+    const items = digests.map(d => {
+      const created = new Date(d.created_at + 'Z');
+      const pubDate = created.toUTCString();
+      const dateLabel = created.toISOString().slice(0, 10);
+      const link = `${PUBLIC_BASE_URL}/blog#brief-${d.id}`;
+      return `    <item>
+      <title>ChipMonk Brief — ${dateLabel}</title>
+      <link>${link}</link>
+      <guid isPermaLink="false">chipmonk-brief-${d.id}</guid>
+      <pubDate>${pubDate}</pubDate>
+      <description><![CDATA[${d.content}]]></description>
+    </item>`;
+    }).join('\n');
+    const lastBuild = digests[0] ? new Date(digests[0].created_at + 'Z').toUTCString() : new Date().toUTCString();
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>ChipMonk — Silicon Intelligence Brief</title>
+    <link>${PUBLIC_BASE_URL}/blog</link>
+    <atom:link href="${PUBLIC_BASE_URL}/blog.rss" rel="self" type="application/rss+xml" />
+    <description>Daily semiconductor industry brief: AI accelerators, foundries, packaging, architecture. Sourced and synthesized from primary feeds.</description>
+    <language>en-us</language>
+    <lastBuildDate>${lastBuild}</lastBuildDate>
+${items}
+  </channel>
+</rss>`;
+    res.writeHead(200, { 'Content-Type': 'application/rss+xml; charset=utf-8' });
+    res.end(xml);
     return;
   }
 
-  // ── Feed endpoints (public, before auth) ──
-  const feedMatch = path.match(/^\/feed\/([a-z0-9_-]+?)(?:\.(json|rss))?$/);
-  if (req.method === 'GET' && feedMatch) {
-    const slug = feedMatch[1];
-    const format = feedMatch[2] || 'api'; // 'json', 'rss', or 'api'
-    const user = getUserBySlug(db, slug);
-    if (!user) return json(res, { error: 'user not found' }, 404);
-
-    const type = params.get('type') || '4h';
-    const limit = Math.min(parseInt(params.get('limit') || '10'), 50);
-    const since = params.get('since') || undefined;
-    const digests = listDigestsByUser(db, user.id, { type, limit, since });
-    const total = countDigestsByUser(db, user.id, { type });
-    const BASE = 'https://github.com/collectivewinca/sliver';
-
-    if (format === 'json') {
-      // JSON Feed 1.1
-      const feed = {
-        version: 'https://jsonfeed.org/version/1.1',
-        title: `${user.name}'s Sliver`,
-        home_page_url: BASE,
-        feed_url: `${BASE}/feed/${slug}.json`,
-        items: digests.map(d => {
-          const ca = d.created_at;
-          const dt = ca.includes('+') ? ca : ca.replace(' ', 'T') + '+08:00';
-          const title = _digestTitle(d, ca);
-          return {
-            id: String(d.id),
-            title,
-            content_text: d.content,
-            date_published: dt,
-            url: `${BASE}/#digest-${d.id}`
-          };
-        })
-      };
-      res.writeHead(200, { 'Content-Type': 'application/feed+json; charset=utf-8' });
-      res.end(JSON.stringify(feed));
-      return;
-    }
-
-    if (format === 'rss') {
-      // RSS 2.0
-      const escXml = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-      let items = '';
-      for (const d of digests) {
-        const ca = d.created_at;
-        const dt = new Date(ca.includes('+') ? ca : ca.replace(' ', 'T') + '+08:00');
-        const title = _digestTitle(d, ca);
-        items += `<item><title>${escXml(title)}</title><link>${BASE}/#digest-${d.id}</link><guid isPermaLink="false">${d.id}</guid><pubDate>${dt.toUTCString()}</pubDate><description>${escXml(d.content.slice(0, 2000))}</description></item>\n`;
-      }
-      const rss = `<?xml version="1.0" encoding="UTF-8"?>\n<rss version="2.0"><channel><title>${escXml(user.name)}'s Sliver</title><link>${BASE}</link><description>Sliver Feed</description>\n${items}</channel></rss>`;
-      res.writeHead(200, { 'Content-Type': 'application/rss+xml; charset=utf-8' });
-      res.end(rss);
-      return;
-    }
-
-    // Simple API
-    return json(res, {
-      user: { name: user.name, slug: user.slug },
-      digests: digests.map(d => ({ id: d.id, type: d.type, content: d.content, created_at: d.created_at })),
-      total
-    });
-  }
-
-  // SPA route: / and /pack/:slug serve frontend HTML
-  if (req.method === 'GET' && (path === '/' || path.startsWith('/pack/'))) {
+  // ── SPA Routes ──
+  if (req.method === 'GET' && (path === '/' || path === '/dashboard' || path === '/blog' || path === '/about' || path.startsWith('/pack/') || path.startsWith('/tracker/') || path === '/tracker')) {
     try {
-      const html = readFileSync(join(ROOT, 'web', 'index.html'), 'utf8');
+      let file = 'index.html';
+      if (path === '/') file = 'showcase.html';
+      else if (path === '/blog') file = 'blog.html';
+      else if (path === '/about') file = 'about.html';
+      else if (path === '/dashboard') file = 'dashboard.html';
+      else if (path === '/tracker' || path.startsWith('/tracker/')) file = 'tracker.html';
+      const html = readFileSync(join(ROOT, 'web', file), 'utf8');
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
       res.end(html);
       return;
@@ -411,461 +449,257 @@ const server = createServer(async (req, res) => {
     }
   }
 
-  // Handle backward compat for legacy non-API endpoints
-  if (path === '/mark' || path === '/marks') {
+  // ── Admin login (no-OAuth fallback): sets cm_admin cookie ──
+  if (req.method === 'GET' && path === '/admin/login') {
+    const provided = params.get('key') || '';
+    if (!API_KEY) { res.writeHead(503); res.end('admin disabled: API_KEY not configured'); return; }
+    if (!constantTimeKeyMatch(provided, API_KEY)) {
+      res.writeHead(401, { 'Content-Type': 'text/plain' }); res.end('invalid key'); return;
+    }
+    const cookie = `cm_admin=${adminCookieToken()}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${30 * 86400}`;
+    res.writeHead(302, { 'Set-Cookie': cookie, Location: '/dashboard' });
+    res.end();
+    return;
+  }
+  if (req.method === 'POST' && path === '/admin/logout') {
+    res.writeHead(200, { 'Set-Cookie': 'cm_admin=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0', 'Content-Type': 'application/json' });
+    res.end('{"ok":true}');
+    return;
+  }
+
+  if (!path.startsWith('/api/') && path !== '/mark' && path !== '/marks') {
     path = '/api' + path;
   }
 
   attachUser(req);
 
   try {
-    // ── Auth endpoints ──
-
-    // GET /api/auth/config — tells frontend if auth is available
+    // ── Auth Endpoints ──
     if (req.method === 'GET' && path === '/api/auth/config') {
-      const authEnabled = !!(GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET);
-      return json(res, { authEnabled });
+      return json(res, { authEnabled: !!(GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET) });
     }
 
-    // GET /api/auth/google
-    if (req.method === 'GET' && path === '/api/auth/google') {
-      const originCandidate = params.get('origin') || req.headers.referer || (req.headers.host ? `${req.headers['x-forwarded-proto'] || 'http'}://${req.headers.host}` : `http://localhost:${PORT}`);
-      const origin = normalizeOrigin(originCandidate);
-      if (!origin || !isAllowedOrigin(origin)) return json(res, { error: 'origin not allowed' }, 400);
-      const originUrl = new URL(origin);
-      const basePath = env.BASE_PATH || process.env.BASE_PATH || '';
-      const redirectUri = `${originUrl.protocol}//${originUrl.host}${basePath}/api/auth/callback`;
-      const nonce = randomBytes(16).toString('hex');
-      const state = signOAuthState({ origin, redirectUri, nonce, ts: Date.now() });
-      const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
-        `client_id=${encodeURIComponent(GOOGLE_CLIENT_ID)}` +
-        `&redirect_uri=${encodeURIComponent(redirectUri)}` +
-        `&response_type=code` +
-        `&scope=${encodeURIComponent('openid email profile')}` +
-        `&state=${encodeURIComponent(state)}` +
-        `&access_type=offline` +
-        `&prompt=select_account`;
-      res.writeHead(302, { Location: authUrl });
-      res.end();
-      return;
-    }
-
-    // GET /api/auth/callback
-    if (req.method === 'GET' && path === '/api/auth/callback') {
-      const code = params.get('code');
-      const stateRaw = params.get('state');
-      if (!code) return json(res, { error: 'missing code' }, 400);
-
-      let origin = req.headers.host ? `${req.headers['x-forwarded-proto'] || 'http'}://${req.headers.host}` : `http://localhost:${PORT}`;
-      let redirectUri = `${origin}/api/auth/callback`;
-      const st = verifyOAuthState(stateRaw);
-      if (!st) return json(res, { error: 'invalid oauth state' }, 400);
-      if (Date.now() - (st.ts || 0) > 10 * 60 * 1000) return json(res, { error: 'expired oauth state' }, 400);
-      if (!isAllowedOrigin(st.origin)) return json(res, { error: 'origin not allowed' }, 400);
-      origin = st.origin;
-      redirectUri = st.redirectUri || redirectUri;
-
-      // Exchange code for tokens
-      const tokenResp = await httpsPost('https://oauth2.googleapis.com/token', {
-        code, client_id: GOOGLE_CLIENT_ID, client_secret: GOOGLE_CLIENT_SECRET,
-        redirect_uri: redirectUri, grant_type: 'authorization_code'
-      });
-      const tokens = JSON.parse(tokenResp.body);
-      if (!tokens.access_token) {
-        console.error('Token exchange failed');
-        return json(res, { error: 'token exchange failed', detail: tokens.error }, 500);
-      }
-
-      // Get user info
-      const userResp = await httpsGet(`https://www.googleapis.com/oauth2/v2/userinfo?access_token=${tokens.access_token}`);
-      const gUser = JSON.parse(userResp.body);
-
-      // Upsert user
-      const user = upsertUser(db, { googleId: gUser.id, email: gUser.email, name: gUser.name, avatar: gUser.picture });
-
-      // Create session
-      const sessionId = randomBytes(32).toString('hex');
-      const expiresAt = new Date(Date.now() + 30 * 86400000).toISOString();
-      createSession(db, { id: sessionId, userId: user.id, expiresAt });
-
-      // Set cookie and redirect to frontend
-      setSessionCookie(res, sessionId);
-      const originUrl = new URL(origin);
-      const bp = env.BASE_PATH || process.env.BASE_PATH || (originUrl.pathname.includes('/digest') ? '/digest' : '');
-      const frontendUrl = `${originUrl.protocol}//${originUrl.host}${bp}/`;
-      res.writeHead(302, { Location: frontendUrl });
-      res.end();
-      return;
-    }
-
-    // GET /api/auth/me
     if (req.method === 'GET' && path === '/api/auth/me') {
       if (!req.user) return json(res, { error: 'not authenticated' }, 401);
       return json(res, { user: req.user });
     }
 
-    // POST /api/auth/logout
-    if (req.method === 'POST' && path === '/api/auth/logout') {
-      if (req.sessionId) deleteSession(db, req.sessionId);
-      clearSessionCookie(res);
-      return json(res, { ok: true });
-    }
-
-    // ── Digest endpoints (public) ──
-
+    // ── Digest Endpoints ──
     if (req.method === 'GET' && path === '/api/digests') {
-      const typeParam = params.get('type');
-      // Validate type if provided
-      const type = typeParam ? validateString(typeParam, 'type', { pattern: /^(4h|daily|weekly|monthly)$/i }) : undefined;
-      // Validate and bounds-check pagination
-      const limit = validateNumber(params.get('limit') || '20', 'limit', { min: 1, max: 50 });
-      const offset = validateNumber(params.get('offset') || '0', 'offset', { min: 0, max: 10000 });
-      // Cache for 60 seconds for list endpoints
-      return json(res, listDigests(db, { type, limit, offset }), 200, 60);
+      const type = params.get('type') || undefined;
+      const limit = parseInt(params.get('limit') || '20');
+      const offset = parseInt(params.get('offset') || '0');
+      return json(res, listDigests(db, { type, limit, offset }));
     }
 
-    const digestMatch = path.match(/^\/api\/digests\/(\d+)$/);
-    if (req.method === 'GET' && digestMatch) {
-      const d = getDigest(db, parseInt(digestMatch[1]));
-      if (!d) return json(res, { error: 'not found' }, 404);
-      // Cache single digest for 5 minutes
-      return json(res, d, 200, 300);
+    // ── Tracker Endpoints (entity rollups written by tracker_updater.py) ──
+    if (req.method === 'GET' && path === '/api/trackers') {
+      const rows = db.prepare("SELECT key, value FROM config WHERE key LIKE 'tracker:%' ORDER BY key").all();
+      const out = rows.map(r => {
+        try { return JSON.parse(r.value); } catch { return { slug: r.key.slice(8), error: 'parse-failed' }; }
+      });
+      return json(res, out);
     }
 
-    if (req.method === 'POST' && path === '/api/digests') {
-      const authHeader = req.headers.authorization || '';
-      const bearerKey = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
-      if (!API_KEY || bearerKey !== API_KEY) return json(res, { error: 'invalid api key' }, 401);
-      const body = await parseBody(req);
-      // Validate required fields
-      const type = validateString(body.type, 'type', { required: true, pattern: /^(4h|daily|weekly|monthly)$/i });
-      const content = validateString(body.content, 'content', { required: true, minLength: 1 });
-      const result = createDigest(db, { type, content, metadata: body.metadata || '{}' });
-      return json(res, result, 201);
+    const trackerMatch = path.match(/^\/api\/trackers\/([a-z0-9-]+)$/i);
+    if (req.method === 'GET' && trackerMatch) {
+      const slug = trackerMatch[1].toLowerCase();
+      const row = db.prepare("SELECT value FROM config WHERE key = ?").get(`tracker:${slug}`);
+      if (!row) return json(res, { error: 'not found' }, 404);
+      try { return json(res, JSON.parse(row.value)); }
+      catch { return json(res, { error: 'parse-failed' }, 500); }
     }
 
-    // ── Marks endpoints (auth required) ──
+    // ── Marks Endpoints ──
+    if (req.method === 'GET' && path === '/api/showcase') {
+      return json(res, listMarks(db, { status: 'approved', publicOnly: true }));
+    }
 
     if (req.method === 'GET' && path === '/api/marks') {
-      const authHeader = req.headers.authorization || '';
-      const bearerKey = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
-      const hasValidKey = API_KEY && bearerKey === API_KEY;
-      if (!req.user && !hasValidKey) return json(res, { error: 'not authenticated' }, 401);
-
       const status = params.get('status') || undefined;
-      const limit = validateNumber(params.get('limit') || '100', 'limit', { min: 1, max: 1000 });
-      return json(res, listMarks(db, { status, limit, userId: req.user?.id }));
+      const since = params.get('since') || undefined;
+      const minScoreRaw = params.get('min_score');
+      const minScore = minScoreRaw != null && minScoreRaw !== '' ? parseFloat(minScoreRaw) : undefined;
+      const source = params.get('source') || undefined;
+      const sort = params.get('sort') || undefined;
+      const limitRaw = params.get('limit');
+      const limit = limitRaw != null && limitRaw !== '' ? Math.max(1, Math.min(500, parseInt(limitRaw, 10))) : 100;
+      const userId = req.user ? req.user.id : undefined;
+      return json(res, listMarks(db, { status, userId, since, minScore, source, sort, limit }));
+    }
+
+    if (req.method === 'GET' && path === '/api/marks/sources') {
+      if (!req.user) return json(res, { error: 'not authenticated' }, 401);
+      return json(res, listMarkSources(db, { userId: req.user.id }));
     }
 
     if (req.method === 'POST' && path === '/api/marks') {
-      const authHeader = req.headers.authorization || '';
-      const bearerKey = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
-      const hasValidKey = API_KEY && bearerKey === API_KEY;
-      if (!req.user && !hasValidKey) return json(res, { error: 'not authenticated' }, 401);
-
       const body = await parseBody(req);
-      const result = createMark(db, { ...body, userId: req.user?.id });
+      if (body.update && body.id) {
+        db.prepare('UPDATE marks SET note = ? WHERE id = ?').run(body.note || '', body.id);
+        return json(res, { ok: true });
+      }
+      const result = createMark(db, { ...body, userId: req.user ? req.user.id : null });
       return json(res, { ok: true, ...result });
     }
 
-    const markMatch = path.match(/^\/api\/marks\/(\d+)$/);
-    if (req.method === 'DELETE' && markMatch) {
+    const markStatusMatch = path.match(/^\/api\/marks\/(\d+)\/status$/);
+    if (req.method === 'PUT' && markStatusMatch) {
       if (!req.user) return json(res, { error: 'not authenticated' }, 401);
-      deleteMark(db, parseInt(markMatch[1]), req.user.id);
+      const body = await parseBody(req);
+      updateMarkStatus(db, parseInt(markStatusMatch[1]), body.status);
       return json(res, { ok: true });
     }
 
-    // POST /mark — backward compat (now requires auth)
-    if (req.method === 'POST' && path === '/mark') {
+    // ── AI Summarize Endpoint ──
+    const summarizeMatch = path.match(/^\/api\/marks\/(\d+)\/summarize$/);
+    if (req.method === 'POST' && summarizeMatch) {
       if (!req.user) return json(res, { error: 'not authenticated' }, 401);
-      const body = await parseBody(req);
-      const url = (body.url || '').split('?')[0];
-      if (!url) return json(res, { error: 'invalid url' }, 400);
-      const result = createMark(db, { url, userId: req.user.id });
-      return json(res, { ok: true, status: result.duplicate ? 'already_marked' : 'marked' });
-    }
+      const markId = parseInt(summarizeMatch[1]);
+      const mark = db.prepare('SELECT * FROM marks WHERE id = ?').get(markId);
+      if (!mark) return json(res, { error: 'not found' }, 404);
 
-    // GET /marks — backward compat (requires auth)
-    if (req.method === 'GET' && path === '/marks') {
-      if (!req.user) return json(res, { error: 'not authenticated' }, 401);
-      const marks = listMarks(db, { userId: req.user.id });
-      const history = marks.map(m => ({
-        action: m.status === 'processed' ? 'processed' : 'mark',
-        target: m.url, at: m.created_at, title: m.title || '',
-      }));
-      return json(res, { tweets: marks.filter(m => m.status === 'pending').map(m => ({ url: m.url, markedAt: m.created_at })), history });
-    }
-
-    // ── Subscriptions endpoints ──
-
-    if (req.method === 'GET' && path === '/api/subscriptions') {
-      if (!req.user) return json(res, { error: 'not authenticated' }, 401);
-      const subs = listSubscriptions(db, req.user.id);
-      return json(res, subs.map(s => ({ ...s, sourceDeleted: !!s.is_deleted })));
-    }
-
-    if (req.method === 'POST' && path === '/api/subscriptions') {
-      if (!req.user) return json(res, { error: 'not authenticated' }, 401);
-      const body = await parseBody(req);
-      if (!body.sourceId) return json(res, { error: 'sourceId required' }, 400);
-      const source = getSource(db, body.sourceId);
-      if (!source) return json(res, { error: 'source not found' }, 404);
-      subscribe(db, req.user.id, body.sourceId);
-      return json(res, { ok: true });
-    }
-
-    if (req.method === 'POST' && path === '/api/subscriptions/bulk') {
-      if (!req.user) return json(res, { error: 'not authenticated' }, 401);
-      const body = await parseBody(req);
-      if (!Array.isArray(body.sourceIds)) return json(res, { error: 'sourceIds array required' }, 400);
-      const added = bulkSubscribe(db, req.user.id, body.sourceIds);
-      return json(res, { ok: true, added });
-    }
-
-    const subMatch = path.match(/^\/api\/subscriptions\/(\d+)$/);
-    if (req.method === 'DELETE' && subMatch) {
-      if (!req.user) return json(res, { error: 'not authenticated' }, 401);
-      unsubscribe(db, req.user.id, parseInt(subMatch[1]));
-      return json(res, { ok: true });
-    }
-
-    // ── Source resolve endpoint ──
-    if (req.method === 'POST' && path === '/api/sources/resolve') {
-      if (!req.user) return json(res, { error: 'login required' }, 401);
-      const body = await parseBody(req);
-      const url = (body.url || '').trim();
-      if (!url) return json(res, { error: 'url required' }, 400);
-
-      try {
-        const result = await resolveSourceUrl(url);
-        return json(res, result);
-      } catch (e) {
-        return json(res, { error: e.message || 'cannot resolve' }, 422);
-      }
-    }
-
-    // ── Sources endpoints ──
-
-    if (req.method === 'GET' && path === '/api/sources') {
-      if (req.user) {
-        const sources = listSources(db, { userId: req.user.id, includePublic: true });
-        // Add subscribed field
-        const subs = new Set(listSubscriptions(db, req.user.id).map(s => s.id));
-        return json(res, sources.map(s => ({ ...s, subscribed: subs.has(s.id) })));
-      } else {
-        // Cache public sources for 30 seconds
-        return json(res, listSources(db, { includePublic: true }), 200, 30);
-      }
-    }
-
-    const sourceMatch = path.match(/^\/api\/sources\/(\d+)$/);
-    if (req.method === 'GET' && sourceMatch) {
-      const s = getSource(db, parseInt(sourceMatch[1]));
-      if (!s) return json(res, { error: 'not found' }, 404);
-      if (!s.is_public && (!req.user || s.created_by !== req.user.id)) {
-        return json(res, { error: 'not found' }, 404);
-      }
-      return json(res, s);
-    }
-
-    if (req.method === 'POST' && path === '/api/sources') {
-      if (!req.user) return json(res, { error: 'login required' }, 401);
-      const body = await parseBody(req);
-      // Validate required fields
-      const name = validateString(body.name, 'name', { required: true, minLength: 1, maxLength: 200 });
-      const type = validateString(body.type, 'type', { required: true, maxLength: 50 });
-      const config = typeof body.config === 'string' ? body.config : JSON.stringify(body.config || {});
-      const isPublic = validateBoolean(body.isPublic, 'isPublic');
-      const result = createSource(db, { name, type, config, isPublic: isPublic ? 1 : 0, createdBy: req.user.id });
-      return json(res, result, 201);
-    }
-
-    if (req.method === 'PUT' && sourceMatch) {
-      if (!req.user) return json(res, { error: 'login required' }, 401);
-      const s = getSource(db, parseInt(sourceMatch[1]));
-      if (!s) return json(res, { error: 'not found' }, 404);
-      if (s.created_by !== req.user.id) return json(res, { error: 'forbidden' }, 403);
-      const body = await parseBody(req);
-      updateSource(db, parseInt(sourceMatch[1]), body);
-      return json(res, { ok: true });
-    }
-
-    if (req.method === 'DELETE' && sourceMatch) {
-      if (!req.user) return json(res, { error: 'login required' }, 401);
-      const s = getSource(db, parseInt(sourceMatch[1]));
-      if (!s) return json(res, { error: 'not found' }, 404);
-      if (s.created_by !== req.user.id) return json(res, { error: 'forbidden' }, 403);
-      deleteSource(db, parseInt(sourceMatch[1]), req.user.id);
-      return json(res, { ok: true });
-    }
-
-    // ── Source Packs endpoints ──
-
-    if (req.method === 'GET' && path === '/api/packs') {
-      const packs = listPacks(db, { publicOnly: true, userId: req.user?.id });
-      return json(res, packs.map(p => ({ ...p, sources: JSON.parse(p.sources_json || '[]'), sources_json: undefined })));
-    }
-
-    const packSlugMatch = path.match(/^\/api\/packs\/([a-z0-9_-]+)$/);
-    const packInstallMatch = path.match(/^\/api\/packs\/([a-z0-9_-]+)\/install$/);
-
-    if (req.method === 'POST' && packInstallMatch) {
-      if (!req.user) return json(res, { error: 'login required' }, 401);
-      const pack = getPackBySlug(db, packInstallMatch[1]);
-      if (!pack) return json(res, { error: 'not found' }, 404);
-      const sources = JSON.parse(pack.sources_json || '[]');
-      let added = 0;
-      for (const s of sources) {
-        const configStr = typeof s.config === 'string' ? s.config : JSON.stringify(s.config);
-        // Check if source already exists (including deleted)
-        const existing = getSourceByTypeConfig(db, s.type, configStr);
-        if (existing) {
-          if (existing.is_deleted) {
-            // Soft-deleted → skip, don't resurrect
-            continue;
+      let articleText = '';
+      if (mark.url) {
+        try {
+          await assertSafeFetchUrl(mark.url);
+          const r = await fetch(mark.url, {
+            signal: AbortSignal.timeout(10000),
+            redirect: 'follow',
+            headers: { 'User-Agent': 'ChipMonkBot/1.0 (+https://chipmonk.tech)' }
+          });
+          if (r.ok) {
+            const html = await r.text();
+            articleText = html
+              .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+              .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+              .replace(/<[^>]+>/g, ' ')
+              .replace(/&nbsp;/g, ' ')
+              .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+              .replace(/&#\d+;/g, ' ')
+              .replace(/\s+/g, ' ')
+              .trim()
+              .slice(0, 3500);
           }
-          // Source exists and active — just subscribe if not already
-          if (!isSubscribed(db, req.user.id, existing.id)) {
-            subscribe(db, req.user.id, existing.id);
-            added++;
-          }
-        } else {
-          // Create new source (createSource auto-subscribes)
-          createSource(db, { name: s.name, type: s.type, config: configStr, isPublic: 0, createdBy: req.user.id });
-          added++;
+        } catch (e) {
+          console.warn('[summarize] body fetch failed for', mark.url, e.message);
         }
       }
-      incrementPackInstall(db, pack.id);
-      return json(res, { ok: true, added, skipped: sources.length - added });
-    }
 
-    if (req.method === 'GET' && packSlugMatch) {
-      const pack = getPackBySlug(db, packSlugMatch[1]);
-      if (!pack) return json(res, { error: 'not found' }, 404);
-      if (!pack.is_public && (!req.user || pack.created_by !== req.user.id)) return json(res, { error: 'not found' }, 404);
-      return json(res, { ...pack, sources: JSON.parse(pack.sources_json || '[]'), sources_json: undefined });
-    }
+      const bodyBlock = articleText ? `Source text:\n${articleText}` : '';
+      const prompt = `Write a brief about this chip-industry article. Output ONLY the body of the brief — no preface, no "here are three paragraphs", no addressing the reader, no notes about your reasoning.
 
-    if (req.method === 'POST' && path === '/api/packs') {
-      if (!req.user) return json(res, { error: 'login required' }, 401);
-      const body = await parseBody(req);
-      const name = (body.name || '').trim();
-      if (!name) return json(res, { error: 'name required' }, 400);
-      let slug = body.slug || name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 50);
-      // Ensure unique slug
-      let candidate = slug;
-      let i = 1;
-      while (getPackBySlug(db, candidate)) { candidate = slug + '-' + (i++); }
-      slug = candidate;
-      const sourcesJson = body.sourcesJson || body.sources_json || '[]';
-      const result = createPack(db, { name, description: body.description || '', slug, sourcesJson, createdBy: req.user.id });
-      return json(res, { ...result, slug }, 201);
-    }
+Hard rules:
+- DO NOT repeat the title. The reader sees the title separately above your text. Do not start with the title; do not insert it as a heading or paragraph break.
+- DO NOT use headings, bold, or bullet lists. Plain paragraphs only.
+- 2-3 short paragraphs, ~200 words total
+- Lead with concrete facts: specific chips, process nodes, fab partners, architecture choices, dollar amounts, TFLOPS, share percentages, dates
+- Drop hype language and filler ("a major step", "groundbreaking", "the future of AI")
+- If the source genuinely contains no chip-hardware content, write a single one-paragraph factual digest of whatever it does cover, still no meta-commentary
 
-    const packIdMatch = path.match(/^\/api\/packs\/(\d+)$/);
-    if (req.method === 'DELETE' && packIdMatch) {
-      if (!req.user) return json(res, { error: 'login required' }, 401);
-      const pack = getPack(db, parseInt(packIdMatch[1]));
-      if (!pack) return json(res, { error: 'not found' }, 404);
-      if (pack.created_by !== req.user.id) return json(res, { error: 'forbidden' }, 403);
-      deletePack(db, pack.id);
-      return json(res, { ok: true });
-    }
+Title (for context only — do not repeat): ${mark.title || ''}
+${bodyBlock}
 
-    // ── Feedback endpoints ──
+Brief:`;
 
-    if (req.method === 'POST' && path === '/api/feedback') {
-      const body = await parseBody(req);
-      if (!body.message || !body.message.trim()) return json(res, { error: 'message required' }, 400);
-      const id = createFeedback(db, req.user?.id || null, body.email || null, body.name || null, body.message.trim(), body.category || null);
-      // Lark channel notification (fire-and-forget)
-      const LARK_WEBHOOK = env.FEEDBACK_LARK_WEBHOOK;
-      if (LARK_WEBHOOK) {
-        const userName = req.user?.name || body.name || 'Anonymous';
-        const userEmail = req.user?.email || body.email || '';
-        const notifBody = JSON.stringify({ msg_type: 'text', content: { text: `📨 New Feedback #${id}\n👤 ${userName}${userEmail ? ' (' + userEmail + ')' : ''}\n💬 "${body.message.trim().slice(0, 200)}"\n🕐 ${new Date().toISOString().slice(0, 19).replace('T', ' ')}` } });
-        try {
-          const u = new URL(LARK_WEBHOOK);
-          const mod = u.protocol === 'https:' ? https : http;
-          const r = mod.request(u, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(notifBody) } });
-          r.on('error', () => {});
-          r.end(notifBody);
-        } catch {}
+      try {
+        const ollamaResp = await fetch('http://127.0.0.1:11434/api/generate', {
+          method: 'POST',
+          signal: AbortSignal.timeout(180000),
+          body: JSON.stringify({
+            model: 'llama3.2:1b',
+            prompt,
+            stream: false,
+            options: { temperature: 0.25, num_predict: 700, stop: ['Note:', 'Note that:', 'Disclaimer:', 'I have stopped', 'I will stop'] }
+          })
+        });
+        const data = await ollamaResp.json();
+        const raw = (data.response || '').trim();
+        const summary = cleanSummary(raw, mark.title);
+        if (!summary) return json(res, { error: 'empty summary from Ollama' }, 502);
+        db.prepare('UPDATE marks SET note = ?, status = \'approved\' WHERE id = ?').run(summary, markId);
+        return json(res, { ok: true, summary, sourcedBody: !!articleText });
+      } catch (e) {
+        return json(res, { error: 'Ollama failed: ' + e.message }, 500);
       }
-      return json(res, { ok: true, id });
     }
 
-    if (req.method === 'GET' && path === '/api/feedback') {
-      if (!req.user) return json(res, []);
-      const feedback = getUserFeedback(db, req.user.id);
-      const unread = getUnreadFeedbackCount(db, req.user.id);
-      return json(res, { feedback, unread });
+    // ── Newsletter subscribers ──
+    if (req.method === 'POST' && path === '/api/subscribe') {
+      const body = await parseBody(req);
+      const email = (body.email || '').slice(0, 254);
+      const source = (body.source || '').slice(0, 64) || null;
+      const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket.remoteAddress || '';
+      const ipHash = ip ? createHmac('sha256', SESSION_SECRET || API_KEY || 'fallback').update(ip).digest('hex').slice(0, 32) : null;
+      const r = addSubscriber(db, { email, source, ipHash });
+      if (!r.ok) return json(res, r, 400);
+      // Fire-and-forget welcome email (only on first subscribe; don't re-spam dupes).
+      if (r.status === 'created' && CLOUDFLARE_EMAIL_TOKEN) {
+        const w = welcomeEmail();
+        sendCloudflareEmail({ to: email, subject: w.subject, html: w.html, text: w.text })
+          .then(send => { if (!send.ok) console.warn('[subscribe] welcome email failed:', send.error || send.status, send.body); })
+          .catch(e => console.warn('[subscribe] welcome email threw:', e.message));
+      }
+      return json(res, { ok: true, status: r.status });
     }
 
-    // Mark feedback as read
-    if (req.method === 'POST' && path === '/api/feedback/read') {
-      if (!req.user) return json(res, { error: 'login required' }, 401);
-      // Mark all unread replies as read for this user
-      db.prepare("UPDATE feedback SET read_at = datetime('now') WHERE user_id = ? AND reply IS NOT NULL AND read_at IS NULL").run(req.user.id);
+    // Admin: broadcast to all active subscribers
+    if (req.method === 'POST' && path === '/api/newsletter/send') {
+      if (!req.user) return json(res, { error: 'not authenticated' }, 401);
+      const body = await parseBody(req);
+      if (!body.subject) return json(res, { error: 'missing subject' }, 400);
+      if (!body.html && !body.text) return json(res, { error: 'missing html or text' }, 400);
+      if (body.dryRun) {
+        return json(res, { ok: true, dryRun: true, wouldSendTo: countSubscribers(db) });
+      }
+      const subs = listSubscribers(db, { limit: 5000 });
+      let sent = 0, failed = 0;
+      const errors = [];
+      for (const s of subs) {
+        const r = await sendCloudflareEmail({ to: s.email, subject: body.subject, html: body.html, text: body.text });
+        if (r.ok) sent++;
+        else { failed++; if (errors.length < 5) errors.push({ email: s.email, err: r.error || r.status }); }
+      }
+      return json(res, { ok: true, total: subs.length, sent, failed, errors });
+    }
+
+    if (req.method === 'GET' && path === '/api/subscribers/count') {
+      return json(res, { count: countSubscribers(db) });
+    }
+
+    if (req.method === 'GET' && path === '/api/subscribers') {
+      if (!req.user) return json(res, { error: 'not authenticated' }, 401);
+      const limit = Math.min(parseInt(params.get('limit') || '200'), 1000);
+      const offset = parseInt(params.get('offset') || '0');
+      return json(res, listSubscribers(db, { limit, offset }));
+    }
+
+    // One-click unsubscribe per RFC 8058 — Gmail's bulk-sender requirement.
+    // Clients POST to the URL in List-Unsubscribe with an email-as-query and
+    // form body 'List-Unsubscribe=One-Click'. Also handle GET (browser link).
+    if ((req.method === 'POST' || req.method === 'GET') && path === '/api/unsubscribe' && params.get('email')) {
+      const email = params.get('email');
+      try { unsubscribeNewsletter(db, email); } catch {}
+      if (req.method === 'GET') {
+        res.writeHead(200, { 'Content-Type': 'text/html' });
+        return res.end(`<!doctype html><meta charset="utf-8"><title>Unsubscribed</title><body style="font-family:system-ui;max-width:560px;margin:64px auto;padding:24px;color:#0f172a;"><h1 style="font-size:22px;">Unsubscribed.</h1><p style="color:#64748b;">${email} has been removed from the ChipMonk newsletter list.</p></body>`);
+      }
       return json(res, { ok: true });
     }
 
-    if (req.method === 'GET' && path === '/api/feedback/all') {
-      const key = params.get('key') || '';
-      const authHeader = req.headers.authorization || '';
-      const bearerKey = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
-      if (!API_KEY || (key !== API_KEY && bearerKey !== API_KEY)) return json(res, { error: 'invalid api key' }, 401);
-      return json(res, getAllFeedback(db));
-    }
-
-    const feedbackReplyMatch = path.match(/^\/api\/feedback\/(\d+)\/reply$/);
-    if (req.method === 'POST' && feedbackReplyMatch) {
-      const key = params.get('key') || '';
-      const authHeader = req.headers.authorization || '';
-      const bearerKey = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
-      if (!API_KEY || (key !== API_KEY && bearerKey !== API_KEY)) return json(res, { error: 'invalid api key' }, 401);
+    if (req.method === 'POST' && path === '/api/unsubscribe') {
       const body = await parseBody(req);
-      if (!body.reply) return json(res, { error: 'reply required' }, 400);
-      replyToFeedback(db, parseInt(feedbackReplyMatch[1]), body.reply, body.replied_by || 'agent');
-      return json(res, { ok: true });
-    }
-
-    // PATCH /api/feedback/:id/status
-    const feedbackStatusMatch = path.match(/^\/api\/feedback\/(\d+)\/status$/);
-    if (req.method === 'PATCH' && feedbackStatusMatch) {
-      const key = params.get('key') || '';
-      const authHeader = req.headers.authorization || '';
-      const bearerKey = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
-      if (!API_KEY || (key !== API_KEY && bearerKey !== API_KEY)) return json(res, { error: 'invalid api key' }, 401);
-      const body = await parseBody(req);
-      const validStatuses = ['open', 'auto_draft', 'needs_human', 'replied', 'closed'];
-      if (!validStatuses.includes(body.status)) return json(res, { error: 'invalid status' }, 400);
-      updateFeedbackStatus(db, parseInt(feedbackStatusMatch[1]), body.status);
-      return json(res, { ok: true });
-    }
-
-    if (req.method === 'GET' && path === '/api/config') {
-      return json(res, getConfig(db));
-    }
-
-    if (req.method === 'PUT' && path === '/api/config') {
-      const authHeader = req.headers.authorization || '';
-      const bearerKey = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
-      if (!API_KEY || bearerKey !== API_KEY) return json(res, { error: 'invalid api key' }, 401);
-      const body = await parseBody(req);
-      for (const [k, v] of Object.entries(body)) setConfig(db, k, v);
+      unsubscribeNewsletter(db, body.email || '');
       return json(res, { ok: true });
     }
 
     json(res, { error: 'not found' }, 404);
   } catch (e) {
-    if (e.message === 'payload too large') return json(res, { error: e.message }, 413);
     console.error(e);
     json(res, { error: e.message }, 500);
   }
 });
 
-const HOST = process.env.DIGEST_HOST || env.DIGEST_HOST || '127.0.0.1';
-server.listen(PORT, HOST, () => {
-  console.log(`🚀 Sliver API running on http://${HOST}:${PORT}`);
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 ClawFeed API running on http://0.0.0.0:${PORT}`);
 });

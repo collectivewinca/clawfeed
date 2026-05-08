@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Insights | ChipMonk</title>
+    <meta name="description" content="ChipMonk insights — daily Brief, entity trackers, approved silicon-industry coverage.">
+    <link rel="alternate" type="application/rss+xml" title="ChipMonk Brief" href="/blog.rss">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;800;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = { theme: { extend: { fontFamily: { serif: ['"Playfair Display"','serif'], sans: ['Inter','sans-serif'], mono: ['"JetBrains Mono"','monospace'] }, colors: { paper: '#FCFCFA', 'editorial-charcoal': '#121212' } } } };
+    </script>
+    <style>
+        :root { --paper:#FCFCFA; --ink:#121212; --ink-soft:#334155; --muted:#64748B; --faint:#94A3B8; --border:#E5E7EB; --accent:#2563EB; --accent-soft:#EFF6FF; }
+        body { background:var(--paper); color:var(--ink); -webkit-font-smoothing: antialiased; font-family: Inter, sans-serif; }
+        .editorial-card { background:white; border:1px solid var(--border); transition:border-color .15s; }
+        .editorial-card:hover { border-color: var(--ink); }
+        .nav-link { color:var(--ink-soft); font-weight:500; transition:color .15s; }
+        .nav-link:hover { color: var(--ink); }
+        .summary-block strong { color: var(--ink); }
+        .summary-block p { margin: 12px 0; line-height: 1.7; color: var(--ink-soft); }
+        .summary-block h1, .summary-block h2, .summary-block h3 { color: var(--ink); font-family: 'Playfair Display', serif; font-weight: 700; margin-top: 24px; }
+        .summary-block h1 { font-size: 28px; } .summary-block h2 { font-size: 22px; } .summary-block h3 { font-size: 16px; }
+        .summary-block hr { border: none; border-top: 1px solid var(--border); margin: 24px 0; }
+        .summary-block ul { padding-left: 24px; margin: 12px 0; }
+        .summary-block li { margin: 4px 0; color: var(--ink-soft); list-style: disc; }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body>
+    <header class="border-b border-gray-200 bg-white">
+        <div class="bg-paper border-b border-gray-200">
+            <div class="mx-auto max-w-7xl px-6 py-1.5 flex justify-between text-xs font-mono text-gray-500 uppercase tracking-wider">
+                <span id="today-date"></span>
+                <span>Insights · Daily Brief · Trackers</span>
+            </div>
+        </div>
+        <nav class="flex items-center justify-between px-6 lg:px-8 py-4 lg:py-6">
+            <a href="/" class="flex items-center gap-2">
+                <svg class="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="6" width="12" height="12" rx="1.5"/><path d="M9 3v3M15 3v3M9 18v3M15 18v3M3 9h3M3 15h3M18 9h3M18 15h3"/></svg>
+                <span class="text-xl font-serif font-semibold">ChipMonk.tech</span>
+            </a>
+            <div class="hidden md:flex items-center gap-8 text-sm">
+                <a href="/blog" class="font-semibold nav-link">Insights</a>
+                <a href="/about" class="font-semibold nav-link">Market</a>
+                <a href="/dashboard" class="font-semibold nav-link">Dashboard</a>
+            </div>
+        </nav>
+    </header>
+
+    <main class="max-w-5xl mx-auto px-6 lg:px-8 pt-12 pb-20">
+        <header class="border-b-4 border-editorial-charcoal pb-4 mb-10">
+            <div class="text-[10px] font-mono uppercase tracking-widest text-gray-500">The Briefing</div>
+            <h1 class="font-serif text-5xl md:text-6xl font-extrabold tracking-tight mt-1">Latest Insights</h1>
+            <p class="text-gray-500 mt-3 max-w-2xl">Reporting on the future of computation — the daily Brief, entity trackers, and the most-cited primary-source coverage from the past week.</p>
+        </header>
+
+        <!-- Filter chips (sources) -->
+        <div class="mb-10 -mx-4 px-4 overflow-x-auto pb-3 scrollbar-hide">
+            <div id="filters" class="flex gap-2 min-w-max">
+                <span class="text-[10px] font-mono text-gray-400 self-center mr-2">FILTER · SOURCE</span>
+                <button data-source="" class="filter-btn text-[11px] font-serif text-white bg-editorial-charcoal px-4 py-2 border border-editorial-charcoal">All</button>
+            </div>
+        </div>
+
+        <!-- Subscribe -->
+        <div class="editorial-card p-6 flex flex-col md:flex-row md:items-center gap-4 mb-12">
+            <div class="md:flex-1">
+                <div class="font-serif text-lg">Get the weekly silicon dispatch.</div>
+                <div class="text-sm text-gray-500">One email a week. Primary sources only. <span id="sub-count" class="font-mono">—</span> subscribed.</div>
+            </div>
+            <form id="subscribe-form" class="flex gap-2 md:w-96">
+                <input type="email" name="email" required placeholder="you@domain.com"
+                    class="flex-1 px-3 py-2 border border-gray-300 text-sm outline-none focus:border-editorial-charcoal" />
+                <button type="submit" class="bg-editorial-charcoal text-white px-4 py-2 text-sm font-semibold hover:bg-gray-700 transition" style="white-space: nowrap;">Subscribe</button>
+            </form>
+        </div>
+        <p id="subscribe-status" class="text-xs font-mono text-gray-500 -mt-8 mb-12" style="min-height: 1rem;"></p>
+
+        <!-- Latest Brief -->
+        <section class="mb-16">
+            <h2 class="font-serif text-xl font-bold tracking-tight mb-4 flex items-center gap-2">
+                <span class="w-2 h-2 bg-red-700"></span>
+                Today's Brief
+            </h2>
+            <div id="latest-brief"></div>
+        </section>
+
+        <!-- Trackers -->
+        <section class="mb-16">
+            <h2 class="font-serif text-xl font-bold tracking-tight mb-4 flex items-center gap-2">
+                <span class="w-2 h-2 bg-red-700"></span>
+                Entity Trackers
+            </h2>
+            <div id="trackers"></div>
+        </section>
+
+        <!-- All approved -->
+        <section>
+            <h2 class="font-serif text-xl font-bold tracking-tight mb-6 flex items-center gap-2 border-b border-gray-200 pb-2">
+                <span class="w-2 h-2 bg-red-700"></span>
+                All Insights
+            </h2>
+            <div id="blog-posts" class="space-y-12"></div>
+        </section>
+    </main>
+
+    <footer class="border-t border-gray-200">
+        <div class="max-w-7xl mx-auto px-6 py-10 flex flex-col md:flex-row justify-between items-center gap-4">
+            <span class="text-xs text-gray-500">ChipMonk · Silicon Intelligence Hub</span>
+            <div class="text-[10px] font-mono text-gray-400">© 2026 ChipMonk.tech</div>
+        </div>
+    </footer>
+
+<script>
+document.getElementById('today-date').textContent = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+let allItems = [];
+let activeSource = '';
+
+function renderMarkdown(md) {
+    if (!md) return '';
+    const esc = s => s.replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
+    function inline(s) { s = esc(s); s = s.replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>'); s = s.replace(/\*([^*]+)\*/g,'<em>$1</em>'); return s; }
+    let html = ''; let inList = false;
+    for (const raw of md.split('\n')) {
+        const line = raw.trim();
+        if (!line) { if (inList) { html += '</ul>'; inList = false; } continue; }
+        if (/^---+$/.test(line)) { if (inList) { html += '</ul>'; inList = false; } html += '<hr>'; continue; }
+        let m;
+        if (m = line.match(/^###\s+(.+)$/)) { if (inList) { html += '</ul>'; inList = false; } html += `<h3>${inline(m[1])}</h3>`; continue; }
+        if (m = line.match(/^##\s+(.+)$/)) { if (inList) { html += '</ul>'; inList = false; } html += `<h2>${inline(m[1])}</h2>`; continue; }
+        if (m = line.match(/^#\s+(.+)$/)) { if (inList) { html += '</ul>'; inList = false; } html += `<h1>${inline(m[1])}</h1>`; continue; }
+        if (m = line.match(/^[-*]\s+(.+)$/)) { if (!inList) { html += '<ul>'; inList = true; } html += `<li>${inline(m[1])}</li>`; continue; }
+        if (inList) { html += '</ul>'; inList = false; }
+        html += `<p>${inline(line)}</p>`;
+    }
+    if (inList) html += '</ul>';
+    return html;
+}
+
+async function loadLatestBrief() {
+    try {
+        const list = await (await fetch('/api/digests?type=daily&limit=1')).json();
+        if (!list.length) return;
+        const d = list[0];
+        const dt = new Date(d.created_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+        document.getElementById('latest-brief').innerHTML = `
+            <article class="editorial-card p-8 md:p-10" style="border-color: var(--ink);">
+                <div class="flex items-center gap-3 mb-5">
+                    <span class="text-[10px] font-mono uppercase tracking-widest text-white bg-editorial-charcoal px-2 py-0.5">Daily Brief</span>
+                    <span class="font-mono text-[10px] text-gray-400">${dt}</span>
+                </div>
+                <div class="summary-block">${renderMarkdown(d.content)}</div>
+            </article>`;
+    } catch {}
+}
+
+async function loadTrackers() {
+    try {
+        const list = (await (await fetch('/api/trackers')).json()).filter(t => t.summary);
+        if (!list.length) return;
+        document.getElementById('trackers').innerHTML = `
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                ${list.map(t => `
+                    <a href="/tracker/${t.slug}" class="editorial-card p-5 block" style="text-decoration:none;color:inherit;">
+                        <div class="text-[10px] font-mono uppercase tracking-widest text-red-700 mb-2">${t.slug.toUpperCase()} · ${t.mark_count} stories</div>
+                        <div class="summary-block">${renderMarkdown(t.summary)}</div>
+                        <div class="text-[10px] font-mono text-blue-700 mt-3">View tracker →</div>
+                    </a>
+                `).join('')}
+            </div>`;
+    } catch {}
+}
+
+function renderInsights() {
+    const container = document.getElementById('blog-posts');
+    const items = activeSource ? allItems.filter(i => i.source_name === activeSource) : allItems;
+    if (!items.length) {
+        container.innerHTML = `<div class="text-center py-16 border border-gray-200 text-gray-500 italic">No insights for "${activeSource}".</div>`;
+        return;
+    }
+    container.innerHTML = items.map(item => {
+        const dt = new Date(item.created_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+        const src = (item.source_name || 'research').replace(/_/g, ' ');
+        const isRealUrl = item.url && /^https?:\/\//.test(item.url);
+        const noteHtml = item.note ? renderMarkdown(item.note) : '<p class="italic text-gray-400">Summary pending.</p>';
+        return `
+            <article class="border-b border-gray-100 pb-12 last:border-b-0">
+                <div class="flex items-center gap-3 mb-3">
+                    <span class="text-[10px] font-mono uppercase tracking-[0.2em] text-red-700 px-2 py-0.5 bg-red-50 border border-red-100">${src}</span>
+                    <span class="text-[10px] font-mono text-gray-400">${dt} · score ${Math.round((item.relevance_score||0)*100)}%</span>
+                </div>
+                <h3 class="font-serif text-3xl font-bold leading-tight mb-4">${item.title}</h3>
+                <div class="summary-block">${noteHtml}</div>
+                ${isRealUrl ? `<a href="${item.url}" target="_blank" rel="noopener" class="inline-block mt-4 text-xs font-mono uppercase tracking-widest text-blue-700">Read source →</a>` : ''}
+            </article>`;
+    }).join('');
+}
+
+function buildFilters() {
+    const sources = Array.from(new Set(allItems.map(i => i.source_name).filter(Boolean))).sort();
+    const wrap = document.getElementById('filters');
+    wrap.innerHTML = `<span class="text-[10px] font-mono text-gray-400 self-center mr-2">FILTER · SOURCE</span>
+        <button data-source="" class="filter-btn text-[11px] font-serif px-4 py-2 border ${activeSource===''?'text-white bg-editorial-charcoal border-editorial-charcoal':'border-gray-300 hover:border-editorial-charcoal'}">All</button>` +
+        sources.map(s => `<button data-source="${s}" class="filter-btn text-[11px] font-serif px-4 py-2 border ${activeSource===s?'text-white bg-editorial-charcoal border-editorial-charcoal':'border-gray-300 hover:border-editorial-charcoal'}">#${s.replace(/_/g,' ')}</button>`).join('');
+    wrap.querySelectorAll('.filter-btn').forEach(b => b.addEventListener('click', () => { activeSource = b.dataset.source; buildFilters(); renderInsights(); }));
+}
+
+async function loadInsights() {
+    try {
+        allItems = await (await fetch('/api/showcase')).json();
+        if (!allItems.length) { document.getElementById('blog-posts').innerHTML = '<p class="text-center py-12 text-gray-500">No insights published yet.</p>'; return; }
+        buildFilters();
+        renderInsights();
+    } catch {
+        document.getElementById('blog-posts').innerHTML = '<p class="text-center py-12 text-red-500">Failed to load insights.</p>';
+    }
+}
+
+async function loadSubCount() {
+    try { document.getElementById('sub-count').textContent = ((await (await fetch('/api/subscribers/count')).json()).count || 0).toLocaleString(); } catch {}
+}
+
+document.getElementById('subscribe-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.currentTarget;
+    const email = form.email.value.trim();
+    const statusEl = document.getElementById('subscribe-status');
+    const btn = form.querySelector('button');
+    btn.disabled = true; statusEl.textContent = '';
+    try {
+        const r = await fetch('/api/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, source: 'blog' }) });
+        const d = await r.json();
+        if (d.ok) { statusEl.style.color = '#15803d'; statusEl.textContent = d.status === 'already_subscribed' ? 'Already subscribed.' : 'Subscribed. Welcome.'; form.reset(); loadSubCount(); }
+        else { statusEl.style.color = '#b91c1c'; statusEl.textContent = d.error === 'invalid_email' ? 'Invalid email.' : 'Try again.'; }
+    } catch { statusEl.style.color = '#b91c1c'; statusEl.textContent = 'Network error.'; }
+    finally { btn.disabled = false; }
+});
+
+loadLatestBrief();
+loadTrackers();
+loadInsights();
+loadSubCount();
+</script>
+</body>
+</html>

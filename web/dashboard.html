@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Dashboard | ChipMonk</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;800;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script>tailwind.config={theme:{extend:{fontFamily:{serif:["Playfair Display","serif"],sans:["Inter","sans-serif"],mono:["JetBrains Mono","monospace"]},colors:{paper:"#FCFCFA","editorial-charcoal":"#121212"}}}}</script>
+<style>
+:root{--paper:#FCFCFA;--ink:#121212;--ink-soft:#334155;--muted:#64748B;--border:#E5E7EB;--accent:#2563EB;--green:#15803d;--red:#b91c1c;--amber:#b45309;--signal-up:#059669;--signal-quiet:#78716C}
+body{background:var(--paper);color:var(--ink);-webkit-font-smoothing:antialiased;font-family:Inter,sans-serif}
+.editorial-card{background:white;border:1px solid var(--border);transition:border-color .15s}
+.editorial-card:hover{border-color:var(--ink)}
+.nav-link{color:var(--ink-soft);font-weight:500;transition:color .15s}
+.nav-link:hover{color:var(--ink)}
+.tab-btn{padding:10px 0;border-bottom:2px solid transparent;color:var(--muted);font-weight:600;font-size:13px;text-transform:uppercase;letter-spacing:.12em;cursor:pointer;transition:all .15s;font-family:"JetBrains Mono",monospace}
+.tab-btn:hover{color:var(--ink)}
+.tab-btn.active{color:var(--ink);border-bottom-color:var(--ink)}
+.pill{display:inline-flex;align-items:center;padding:3px 9px;font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;border-radius:999px;font-family:"JetBrains Mono",monospace}
+.pill-approved{background:#ecfdf5;color:var(--green)}
+.pill-pending{background:#fffbeb;color:var(--amber)}
+.pill-rejected{background:#fef2f2;color:var(--red)}
+.pill-source{background:#f1f5f9;color:var(--ink-soft)}
+.summary-block p{margin:12px 0;line-height:1.75;color:var(--ink-soft)}
+.summary-block h1,.summary-block h2,.summary-block h3{color:var(--ink);font-family:"Playfair Display",serif;font-weight:700;margin-top:24px}
+.summary-block h1{font-size:28px}.summary-block h2{font-size:22px}.summary-block h3{font-size:16px}
+.summary-block hr{border:none;border-top:1px solid var(--border);margin:24px 0}
+.summary-block ul{padding-left:24px;margin:12px 0}
+.summary-block li{margin:4px 0;color:var(--ink-soft);list-style:disc}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.08em;border:1px solid var(--border);background:white;color:var(--ink-soft);cursor:pointer;transition:all .15s;font-family:"JetBrains Mono",monospace}
+.btn:hover{border-color:var(--ink);color:var(--ink)}
+.btn-approve:hover{background:#ecfdf5;border-color:var(--green);color:var(--green)}
+.btn-reject:hover{background:#fef2f2;border-color:var(--red);color:var(--red)}
+.btn-primary{background:var(--ink);color:white;border-color:var(--ink)}
+.btn-primary:hover{background:#1E293B;color:white}
+select,input{font-family:inherit}
+.filter-input{padding:6px 10px;border:1px solid var(--border);background:white;font-size:13px;color:var(--ink)}
+.filter-input:focus{outline:none;border-color:var(--ink)}
+.signal-dot{display:inline-block;width:8px;height:8px;border-radius:50%}
+.signal-dot.up{background:var(--signal-up)}
+.signal-dot.quiet{background:var(--signal-quiet)}
+.hover-card{transition:all .15s}
+.hover-card:hover{transform:translateY(-1px);box-shadow:0 2px 8px rgba(0,0,0,.06)}
+</style>
+</head>
+<body>
+<header class="border-b border-gray-200 bg-white">
+<div class="bg-paper border-b border-gray-200">
+<div class="mx-auto max-w-7xl px-6 py-1.5 flex justify-between text-xs font-mono text-gray-500 uppercase tracking-wider">
+<span id="today-date"></span>
+<span>Editorial Console</span>
+</div>
+</div>
+<nav class="flex items-center justify-between px-6 lg:px-8 py-4 lg:py-6">
+<a href="/" class="flex items-center gap-2">
+<svg class="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="6" width="12" height="12" rx="1.5"/><path d="M9 3v3M15 3v3M9 18v3M15 18v3M3 9h3M3 15h3M18 9h3M18 15h3"/></svg>
+<span class="text-xl font-serif font-semibold">ChipMonk.tech</span>
+</a>
+<div class="hidden md:flex items-center gap-8 text-sm">
+<a href="/blog" class="font-semibold nav-link">Insights</a>
+<a href="/about" class="font-semibold nav-link">Market</a>
+<a href="/dashboard" class="font-semibold nav-link" style="color:var(--ink)">Dashboard</a>
+</div>
+</nav>
+</header>
+<main class="max-w-6xl mx-auto px-6 lg:px-8 pt-10 pb-20">
+<header class="border-b-4 border-editorial-charcoal pb-4 mb-8">
+<div class="flex items-center gap-3">
+<span class="text-[10px] font-mono uppercase tracking-widest text-gray-500">The Console</span>
+<span id="pulse-indicator" class="inline-flex items-center gap-1.5 text-[10px] font-mono text-gray-400"></span>
+</div>
+<h1 class="font-serif text-5xl md:text-6xl font-extrabold tracking-tight mt-1">Dashboard</h1>
+<p class="text-gray-500 mt-3 max-w-2xl">Pipeline signal, editorial highlights, and the review queue.</p>
+</header>
+<div id="pipeline-signal" class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-10">
+<div class="editorial-card p-5 hover-card">
+<div class="flex items-center gap-2 mb-2"><span class="signal-dot up" id="signal-brief-dot"></span><span class="text-[10px] font-mono uppercase tracking-widest text-gray-500">Latest Brief</span></div>
+<div class="font-serif text-lg font-bold leading-tight" id="signal-brief-title">--</div>
+<div class="text-xs text-gray-400 mt-1 font-mono" id="signal-brief-time"></div>
+</div>
+<div class="editorial-card p-5 hover-card">
+<span class="text-[10px] font-mono uppercase tracking-widest text-gray-500">Top Score Today</span>
+<div class="font-serif text-lg font-bold leading-tight mt-2" id="signal-top-headline">--</div>
+<div class="flex items-center gap-2 mt-1"><span class="text-xs font-mono text-gray-400" id="signal-top-source"></span><span class="text-xs font-mono text-gray-400" id="signal-top-score"></span></div>
+</div>
+<div class="editorial-card p-5 hover-card">
+<span class="text-[10px] font-mono uppercase tracking-widest text-gray-500">Most Active Source</span>
+<div class="font-serif text-lg font-bold leading-tight mt-2" id="signal-source-name">--</div>
+<div class="text-xs text-gray-400 mt-1 font-mono" id="signal-source-count"></div>
+</div>
+<div class="editorial-card p-5 hover-card">
+<span class="text-[10px] font-mono uppercase tracking-widest text-gray-500">Next Brief</span>
+<div class="font-serif text-lg font-bold leading-tight mt-2" id="signal-next-eta">--</div>
+<div class="text-xs text-gray-400 mt-1 font-mono" id="signal-next-label"></div>
+</div>
+</div>
+<nav class="flex items-center gap-8 border-b border-gray-200 mb-8">
+<button class="tab-btn active" data-tab="briefs">Briefs</button>
+<button class="tab-btn" data-tab="marks">Marks</button>
+<button class="tab-btn" data-tab="review">Review</button>
+<div class="ml-auto flex items-center gap-3"><span id="admin-indicator" class="text-xs font-mono uppercase tracking-wider text-gray-400"></span></div>
+</nav>
+<section id="panel-briefs" class="panel"><div id="briefs-list"><div class="text-gray-400 font-mono text-sm">Loading briefs...</div></div></section>
+<section id="panel-marks" class="panel hidden">
+<div class="flex flex-wrap items-center gap-3 mb-6">
+<select id="filter-status" class="filter-input"><option value="">All statuses</option><option value="approved">Approved</option><option value="pending">Pending</option><option value="rejected">Rejected</option></select>
+<select id="filter-source" class="filter-input"><option value="">All sources</option></select>
+<select id="filter-sort" class="filter-input"><option value="time">Newest first</option><option value="score">Highest score</option></select>
+<input id="filter-min-score" type="number" min="0" max="1" step="0.05" placeholder="Min score" class="filter-input w-28">
+<button class="btn" onclick="loadMarks()">Apply</button>
+</div>
+<div id="marks-list"><div class="text-gray-400 font-mono text-sm">Loading marks...</div></div>
+</section>
+<section id="panel-review" class="panel hidden"><div id="review-content"></div></section>
+</main>
+<footer class="border-t border-gray-200">
+<div class="max-w-7xl mx-auto px-6 py-10 flex flex-col md:flex-row justify-between items-center gap-4">
+<span class="text-xs text-gray-500">ChipMonk &#xb7; Silicon Intelligence Hub</span>
+<div class="flex items-center gap-6 text-xs font-mono uppercase tracking-wider text-gray-500">
+<a href="/blog.rss" class="nav-link">RSS</a><a href="/blog" class="nav-link">Insights</a><a href="/about" class="nav-link">Market</a>
+</div>
+</div>
+</footer>
+<script>
+var API="/api",isAdmin=!1,allMarks=[],allSources=[];
+document.getElementById("today-date").textContent=new Date().toLocaleDateString("en-US",{weekday:"long",year:"numeric",month:"long",day:"numeric"});
+function fmtDate(s){if(!s)return"";var d=new Date(s.replace(" ","T")+"Z");return isNaN(d)?s:d.toLocaleDateString("en-US",{year:"numeric",month:"short",day:"numeric"})}
+function fmrRelative(s){if(!s)return"";var d=new Date(s.replace(" ","T")+"Z"),ms=Date.now()-d.getTime(),min=Math.floor(ms/6e4);return min<60?min+"m ago":min<1440?Math.floor(min/60)+"h ago":Math.floor(min/1440)+"d ago"}
+function escapeHtml(s){return String(s||"").replace(/[&<>"]/g,function(c){return({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"})[c]||c})}
+function statusPill(s){var c={approved:"pill-approved",pending:"pill-pending",rejected:"pill-rejected"}[s]||"pill-source";return'<span class="pill '+c+'">'+escapeHtml(s)+"</span>"}
+function todayStr(){var d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
+function formatEta(h,m){var n=new Date(),t=new Date(n);t.setUTCHours(h,m,0,0);if(t<=n)t.setUTCDate(t.getUTCDate()+1);var d=t-n,hr=Math.floor(d/36e5),mi=Math.floor(d%36e5/6e4);return hr>0?hr+"h "+mi+"m":mi+"m"}
+async function loadPipelineSignal(){try{var r=await Promise.all([fetch(API+"/marks?limit=500").then(function(r){return r.json()}),fetch(API+"/digests?type=daily&limit=10").then(function(r){return r.json()})]),ms=r[0],bs=r[1];allMarks=Array.isArray(ms)?ms:[];var td=todayStr(),tm=allMarks.filter(function(m){return m.created_at&&m.created_at.startsWith(td)}),ta=tm.filter(function(m){return m.status==="approved"}),lb=Array.isArray(bs)&&bs.length>0?bs[0]:null,pd=document.getElementById("pulse-indicator");if(ta.length>0)pd.innerHTML='<span class="signal-dot up"></span> <span>'+ta.length+" approved today</span>";else if(tm.length>0)pd.innerHTML='<span class="signal-dot quiet"></span> <span>'+tm.length+" ingested today</span>";else pd.innerHTML='<span class="signal-dot quiet"></span> <span>No new activity today</span>';if(lb){document.getElementById("signal-brief-dot").className="signal-dot up";document.getElementById("signal-brief-title").textContent=fmtDate(lb.created_at);document.getElementById("signal-brief-time").textContent=fmtRelative(lb.created_at)+" \xb7 "+(lb.title||"Daily Brief")}else{document.getElementById("signal-brief-dot").className="signal-dot quiet";document.getElementById("signal-brief-title").textContent="No Brief yet";document.getElementById("signal-brief-time").textContent="Next one due soon"}var sa=allMarks.filter(function(m){return m.status==="approved"&&m.relevance_score!=null});sa.sort(function(a,b){return b.relevance_score-a.relevance_score});var tp=sa[0];if(tp){var tl=tp.title||"(untitled)";document.getElementById("signal-top-headline").textContent=tl.length>55?tl.slice(0,52)+"...":tl;document.getElementById("signal-top-source").textContent=tp.source_name||"unknown";document.getElementById("signal-top-score").textContent=Number(tp.relevance_score).toFixed(3)}var sc={};for(var i=0;i<tm.length;i++){var ss=tm[i].source_name;if(ss)sc[ss]=(sc[ss]||0)+1}var sr=Object.entries(sc).sort(function(a,b){return b[1]-a[1]});if(sr.length>0){document.getElementById("signal-source-name").textContent=sr[0][0].replace(/_/g," ");document.getElementById("signal-source-count").textContent=sr[0][1]+" articles today"}else{var ac={};for(var i=0;i<allMarks.length;i++){var ss=allMarks[i].source_name;if(ss)ac[ss]=(ac[ss]||0)+1}var ta2=Object.entries(ac).sort(function(a,b){return b[1]-a[1]})[0];if(ta2){document.getElementById("signal-source-name").textContent=ta2[0].replace(/_/g," ");document.getElementById("signal-source-count").textContent=ta2[1]+" articles overall"}}document.getElementById("signal-next-eta").textContent=formatEta(14,35);document.getElementById("signal-next-label").textContent="Daily Brief \xb7 14:35 UTC";var sn=Array.from(new Set(allMarks.map(function(m){return m.source_name}).filter(Boolean))).sort();allSources=sn;var se=document.getElementById("filter-source");se.innerHTML="<option value=\"\">All sources</option>"+sn.map(function(s){return'<option value="'+escapeHtml(s)+'">'+escapeHtml(s)+"</option>"}).join("")}catch(e){console.error("pipeline signal load failed",e)}}

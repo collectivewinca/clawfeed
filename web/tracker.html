@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tracker — ChipMonk</title>
+    <meta name="description" content="A continually-updated tracker on a single semiconductor entity.">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;800;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = { theme: { extend: { fontFamily: { serif: ['"Playfair Display"','serif'], sans: ['Inter','sans-serif'], mono: ['"JetBrains Mono"','monospace'] }, colors: { paper: '#FCFCFA', 'editorial-charcoal': '#121212' } } } };
+    </script>
+    <style>
+        :root { --paper:#FCFCFA; --ink:#121212; --ink-soft:#334155; --muted:#64748B; --faint:#94A3B8; --border:#E5E7EB; --accent:#2563EB; --accent-soft:#EFF6FF; }
+        body { background:var(--paper); color:var(--ink); -webkit-font-smoothing: antialiased; font-family: Inter, sans-serif; }
+        .editorial-card { background:white; border:1px solid var(--border); transition:border-color .15s; }
+        .editorial-card:hover { border-color: var(--ink); }
+        .nav-link { color:var(--ink-soft); font-weight:500; transition:color .15s; }
+        .nav-link:hover { color: var(--ink); }
+        .summary-block strong { color: var(--ink); }
+        .summary-block p { margin: 14px 0; line-height: 1.75; color: var(--ink-soft); }
+        .summary-block h1, .summary-block h2, .summary-block h3 { color: var(--ink); font-family: 'Playfair Display', serif; font-weight: 700; margin-top: 24px; margin-bottom: 8px; }
+        .summary-block h1 { font-size: 28px; } .summary-block h2 { font-size: 22px; } .summary-block h3 { font-size: 16px; }
+        .summary-block hr { border: none; border-top: 1px solid var(--border); margin: 24px 0; }
+        .summary-block ul { padding-left: 24px; margin: 12px 0; }
+        .summary-block li { margin: 4px 0; color: var(--ink-soft); list-style: disc; }
+    </style>
+</head>
+<body>
+    <header class="border-b border-gray-200 bg-white">
+        <div class="bg-paper border-b border-gray-200">
+            <div class="mx-auto max-w-7xl px-6 py-1.5 flex justify-between text-xs font-mono text-gray-500 uppercase tracking-wider">
+                <span id="today-date"></span>
+                <span>Tracker</span>
+            </div>
+        </div>
+        <nav class="flex items-center justify-between px-6 lg:px-8 py-4 lg:py-6">
+            <a href="/" class="flex items-center gap-2">
+                <svg class="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="6" width="12" height="12" rx="1.5"/><path d="M9 3v3M15 3v3M9 18v3M15 18v3M3 9h3M3 15h3M18 9h3M18 15h3"/></svg>
+                <span class="text-xl font-serif font-semibold">ChipMonk.tech</span>
+            </a>
+            <div class="hidden md:flex items-center gap-8 text-sm">
+                <a href="/blog" class="font-semibold nav-link">Insights</a>
+                <a href="/about" class="font-semibold nav-link">Market</a>
+                <a href="/dashboard" class="font-semibold nav-link">Dashboard</a>
+            </div>
+        </nav>
+    </header>
+
+    <main class="max-w-5xl mx-auto px-6 lg:px-8 py-12">
+        <div class="mb-6"><a href="/blog" class="text-sm font-mono uppercase tracking-widest text-gray-500 hover:text-editorial-charcoal">← All insights</a></div>
+        <div id="tracker-root">
+            <p class="text-center py-12 text-gray-500">Loading tracker…</p>
+        </div>
+    </main>
+
+    <footer class="border-t border-gray-200 mt-16">
+        <div class="max-w-7xl mx-auto px-6 py-10 flex flex-col md:flex-row justify-between items-center gap-4">
+            <span class="text-xs text-gray-500">ChipMonk · Silicon Intelligence Hub</span>
+            <div class="text-[10px] font-mono text-gray-400">© 2026 ChipMonk.tech</div>
+        </div>
+    </footer>
+
+<script>
+document.getElementById('today-date').textContent = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+const slug = location.pathname.replace(/^\/tracker\//, '').replace(/\/$/, '');
+
+function renderMarkdown(md) {
+    if (!md) return '';
+    const esc = s => s.replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
+    function inline(s) { s = esc(s); s = s.replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>'); s = s.replace(/\*([^*]+)\*/g,'<em>$1</em>'); return s; }
+    let html = ''; let inList = false;
+    for (const raw of md.split('\n')) {
+        const line = raw.trim();
+        if (!line) { if (inList) { html += '</ul>'; inList = false; } continue; }
+        if (/^---+$/.test(line)) { if (inList) { html += '</ul>'; inList = false; } html += '<hr>'; continue; }
+        let m;
+        if (m = line.match(/^###\s+(.+)$/)) { if (inList) { html += '</ul>'; inList = false; } html += `<h3>${inline(m[1])}</h3>`; continue; }
+        if (m = line.match(/^##\s+(.+)$/)) { if (inList) { html += '</ul>'; inList = false; } html += `<h2>${inline(m[1])}</h2>`; continue; }
+        if (m = line.match(/^#\s+(.+)$/)) { if (inList) { html += '</ul>'; inList = false; } html += `<h1>${inline(m[1])}</h1>`; continue; }
+        if (m = line.match(/^[-*]\s+(.+)$/)) { if (!inList) { html += '<ul>'; inList = true; } html += `<li>${inline(m[1])}</li>`; continue; }
+        if (inList) { html += '</ul>'; inList = false; }
+        html += `<p>${inline(line)}</p>`;
+    }
+    if (inList) html += '</ul>';
+    return html;
+}
+
+async function loadTracker() {
+    const root = document.getElementById('tracker-root');
+    if (!slug) {
+        root.innerHTML = `<div class="text-center py-12"><h1 class="font-serif text-2xl font-bold mb-4">No tracker selected</h1><a href="/blog" class="text-xs font-mono uppercase tracking-widest text-blue-700">Browse all trackers →</a></div>`;
+        return;
+    }
+    try {
+        const r = await fetch(`/api/trackers/${slug}`);
+        if (r.status === 404) {
+            root.innerHTML = `<div class="text-center py-12"><h1 class="font-serif text-3xl font-bold mb-4">Tracker not found</h1><p class="text-gray-500 mb-6">No active tracker for "${slug}". This usually means there aren't enough recent stories yet.</p><a href="/blog" class="text-xs font-mono uppercase tracking-widest text-blue-700">Browse all trackers →</a></div>`;
+            return;
+        }
+        const t = await r.json();
+        const updated = t.last_updated ? new Date(t.last_updated).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : '';
+        document.title = `${slug.toUpperCase()} tracker — ChipMonk`;
+        let sourceMarksHtml = '';
+        if (Array.isArray(t.mark_ids) && t.mark_ids.length) {
+            try {
+                const marksList = (await (await fetch('/api/showcase')).json())
+                    .filter(m => t.mark_ids.includes(m.id))
+                    .sort((a,b) => (b.relevance_score||0) - (a.relevance_score||0));
+                if (marksList.length) {
+                    sourceMarksHtml = `
+                        <h2 class="font-serif text-2xl font-bold tracking-tight mt-12 mb-4 border-b border-gray-200 pb-2">Source stories (${marksList.length})</h2>
+                        <div class="space-y-3">
+                            ${marksList.map(m => `
+                                <div class="editorial-card p-4">
+                                    <div class="text-[10px] font-mono uppercase tracking-widest text-gray-400 mb-1">${(m.source_name||'').replace(/_/g,' ')} · ${(m.created_at||'').slice(0,10)} · score ${Math.round((m.relevance_score||0)*100)}%</div>
+                                    <a href="${m.url}" target="_blank" rel="noopener" class="font-serif text-base font-semibold">${m.title}</a>
+                                </div>`).join('')}
+                        </div>`;
+                }
+            } catch {}
+        }
+        root.innerHTML = `
+            <div class="flex items-center gap-3 mb-3">
+                <span class="text-[10px] font-mono uppercase tracking-widest text-white bg-editorial-charcoal px-2 py-0.5">Tracker</span>
+                <span class="font-mono text-[10px] text-gray-400">${t.mark_count || 0} stories · updated ${updated}</span>
+            </div>
+            <h1 class="font-serif text-5xl md:text-6xl font-extrabold tracking-tight mb-8">${slug.toUpperCase()}</h1>
+            <article class="editorial-card p-8 md:p-10">
+                <div class="summary-block">${renderMarkdown(t.summary || '')}</div>
+            </article>
+            ${sourceMarksHtml}`;
+    } catch (e) {
+        root.innerHTML = `<div class="text-center py-12 text-red-700">Failed to load tracker: ${e.message}</div>`;
+    }
+}
+loadTracker();
+</script>
+</body>
+</html>

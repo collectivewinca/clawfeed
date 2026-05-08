@@ -2,13 +2,21 @@ import Database from 'better-sqlite3';
 import { readFileSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { loadEnv } from './utils/env.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
 
-// Load .env using shared loader
-const env = loadEnv();
+// Load .env
+const envPath = join(ROOT, '.env');
+const env = {};
+if (existsSync(envPath)) {
+  for (const line of readFileSync(envPath, 'utf8').split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const eq = trimmed.indexOf('=');
+    if (eq > 0) env[trimmed.slice(0, eq)] = trimmed.slice(eq + 1);
+  }
+}
 
 let _db;
 
@@ -94,27 +102,32 @@ export function getDb(dbPath) {
   } catch (e) {
     if (!e.message.includes('duplicate column')) console.error('Migration 009:', e.message);
   }
-  // Migration 010: Performance indexes
+  // Migration 011: Approval workflow (renamed to 011_chipmonk_source_meta.sql in chipmonk fork)
   try {
-    const sql10 = readFileSync(join(ROOT, 'migrations', '010_perf_indexes.sql'), 'utf8');
-    for (const stmt of sql10.split(';').filter(s => s.trim())) {
+    const m11path = ['011_chipmonk_source_meta.sql', '011_approval.sql']
+      .map(n => join(ROOT, 'migrations', n))
+      .find(p => existsSync(p));
+    if (m11path) {
+      const sql11 = readFileSync(m11path, 'utf8');
+      for (const stmt of sql11.split(';').filter(s => s.trim())) {
+        try { _db.exec(stmt + ';'); } catch (e) {
+          if (!e.message.includes('duplicate column')) throw e;
+        }
+      }
+    }
+  } catch (e) {
+    if (!e.message.includes('duplicate column')) console.error('Migration 011:', e.message);
+  }
+  // Migration 012: Newsletter subscribers
+  try {
+    const sql12 = readFileSync(join(ROOT, 'migrations', '012_subscribers.sql'), 'utf8');
+    for (const stmt of sql12.split(';').filter(s => s.trim())) {
       try { _db.exec(stmt + ';'); } catch (e) {
         if (!e.message.includes('already exists') && !e.message.includes('duplicate column')) throw e;
       }
     }
   } catch (e) {
-    if (!e.message.includes('already exists') && !e.message.includes('duplicate column')) console.error('Migration 010:', e.message);
-  }
-  // Migration 011: Approval workflow
-  try {
-    const sql11 = readFileSync(join(ROOT, 'migrations', '011_approval.sql'), 'utf8');
-    for (const stmt of sql11.split(';').filter(s => s.trim())) {
-      try { _db.exec(stmt + ';'); } catch (e) {
-        if (!e.message.includes('duplicate column')) throw e;
-      }
-    }
-  } catch (e) {
-    if (!e.message.includes('duplicate column')) console.error('Migration 011:', e.message);
+    if (!e.message.includes('already exists')) console.error('Migration 012:', e.message);
   }
   // Backfill slugs for existing users
   _backfillSlugs(_db);
@@ -144,10 +157,10 @@ function _backfillSlugs(db) {
 // ── Digests ──
 
 export function listDigests(db, { type, limit = 20, offset = 0 } = {}) {
-  let sql = 'SELECT id, type, substr(content, 1, 500) as excerpt, metadata, created_at FROM digests';
+  let sql = "SELECT id, type, content, metadata, created_at FROM digests";
   const params = [];
-  if (type) { sql += ' WHERE type = ?'; params.push(type); }
-  sql += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
+  if (type) { sql += " WHERE type = ?"; params.push(type); }
+  sql += " ORDER BY created_at DESC LIMIT ? OFFSET ?";
   params.push(limit, offset);
   return db.prepare(sql).all(...params);
 }
@@ -167,23 +180,43 @@ export function createDigest(db, { type, content, metadata = '{}', created_at })
 
 // ── Marks ──
 
-export function listMarks(db, { status, limit = 100, offset = 0, userId } = {}) {
+export function listMarks(db, { status, limit = 100, offset = 0, userId, publicOnly = false, since, minScore, source, sort } = {}) {
   let sql = 'SELECT * FROM marks';
   const params = [];
   const conditions = [];
   if (status) { conditions.push('status = ?'); params.push(status); }
-  if (userId) { conditions.push('user_id = ?'); params.push(userId); }
+  if (userId && !publicOnly) { if (userId === 1) { conditions.push('(user_id = ? OR user_id IS NULL)'); } else { conditions.push('user_id = ?'); } params.push(userId); }
+  if (publicOnly) { conditions.push("status = 'approved'"); }
+  if (since) { conditions.push('created_at >= ?'); params.push(since); }
+  if (minScore != null) { conditions.push('relevance_score >= ?'); params.push(minScore); }
+  if (source) { conditions.push('source_name = ?'); params.push(source); }
   if (conditions.length) sql += ' WHERE ' + conditions.join(' AND ');
-  sql += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
+  if (sort === 'score' || (status === 'pending' && sort !== 'time')) {
+    sql += ' ORDER BY relevance_score DESC, created_at DESC LIMIT ? OFFSET ?';
+  } else {
+    sql += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
+  }
   params.push(limit, offset);
   return db.prepare(sql).all(...params);
 }
 
-export function createMark(db, { url, title = '', note = '', userId, sourceName = '', relevance_score = 0.0 }) {
+export function listMarkSources(db, { userId } = {}) {
+  let sql = 'SELECT source_name, COUNT(*) AS n FROM marks WHERE source_name IS NOT NULL';
+  const params = [];
+  if (userId) {
+    if (userId === 1) { sql += ' AND (user_id = ? OR user_id IS NULL)'; }
+    else { sql += ' AND user_id = ?'; }
+    params.push(userId);
+  }
+  sql += ' GROUP BY source_name ORDER BY n DESC';
+  return db.prepare(sql).all(...params);
+}
+
+export function createMark(db, { url, title = '', note = '', userId, sourceName = null, externalId = null, status = 'pending', relevance_score = 0 }) {
   // Check duplicate for this user
   const existing = db.prepare('SELECT id FROM marks WHERE url = ? AND user_id = ?').get(url, userId);
   if (existing) return { id: existing.id, duplicate: true };
-  const result = db.prepare('INSERT INTO marks (url, title, note, user_id, source_name, relevance_score) VALUES (?, ?, ?, ?, ?, ?)').run(url, title, note, userId, sourceName, relevance_score);
+  const result = db.prepare('INSERT INTO marks (url, title, note, user_id, source_name, external_id, status, relevance_score) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run(url, title, note, userId, sourceName, externalId, status, relevance_score);
   return { id: result.lastInsertRowid, duplicate: false };
 }
 
@@ -254,7 +287,7 @@ export function getUserBySlug(db, slug) {
 
 export function listDigestsByUser(db, userId, { type, limit = 10, since } = {}) {
   // userId=null means system digests (user_id IS NULL), which we also show for any user feed
-  let sql = 'SELECT id, type, substr(content, 1, 500) as content, created_at FROM digests WHERE (user_id = ? OR user_id IS NULL)';
+  let sql = 'SELECT id, type, content, created_at FROM digests WHERE (user_id = ? OR user_id IS NULL)';
   const params = [userId];
   if (type) { sql += ' AND type = ?'; params.push(type); }
   if (since) { sql += ' AND created_at >= ?'; params.push(since); }
@@ -452,6 +485,39 @@ export function markFeedbackRead(db, id) {
 
 export function getUnreadFeedbackCount(db, userId) {
   return db.prepare("SELECT COUNT(*) as count FROM feedback WHERE user_id = ? AND reply IS NOT NULL AND read_at IS NULL").get(userId)?.count || 0;
+}
+
+// ── Newsletter subscribers (chipmonk) ──
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export function addSubscriber(db, { email, source = null, ipHash = null } = {}) {
+  const norm = (email || '').trim().toLowerCase();
+  if (!EMAIL_RE.test(norm) || norm.length > 254) {
+    return { ok: false, error: 'invalid_email' };
+  }
+  try {
+    const r = db.prepare('INSERT INTO subscribers (email, source, ip_hash) VALUES (?, ?, ?)').run(norm, source, ipHash);
+    return { ok: true, id: r.lastInsertRowid, status: 'created' };
+  } catch (e) {
+    if (String(e.message).includes('UNIQUE') || e.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+      return { ok: true, status: 'already_subscribed' };
+    }
+    return { ok: false, error: e.message };
+  }
+}
+
+export function listSubscribers(db, { limit = 200, offset = 0, status = 'active' } = {}) {
+  return db.prepare('SELECT id, email, source, status, created_at FROM subscribers WHERE status = ? ORDER BY id DESC LIMIT ? OFFSET ?').all(status, limit, offset);
+}
+
+export function countSubscribers(db) {
+  return db.prepare("SELECT COUNT(*) AS n FROM subscribers WHERE status = 'active'").get().n;
+}
+
+export function unsubscribeNewsletter(db, email) {
+  const norm = (email || '').trim().toLowerCase();
+  return db.prepare("UPDATE subscribers SET status = 'unsubscribed' WHERE email = ?").run(norm);
 }
 
 // ── Config ──

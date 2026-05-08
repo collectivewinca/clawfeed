@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Market | ChipMonk</title>
+    <meta name="description" content="The Silicon market — shape, share, leverage points, and what ChipMonk tracks.">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;800;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = { theme: { extend: { fontFamily: { serif: ['"Playfair Display"','serif'], sans: ['Inter','sans-serif'], mono: ['"JetBrains Mono"','monospace'] }, colors: { paper: '#FCFCFA', 'editorial-charcoal': '#121212' } } } };
+    </script>
+    <style>
+        :root { --paper:#FCFCFA; --ink:#121212; --ink-soft:#334155; --muted:#64748B; --faint:#94A3B8; --border:#E5E7EB; --accent:#2563EB; }
+        body { background:var(--paper); color:var(--ink); font-family: Inter, sans-serif; -webkit-font-smoothing: antialiased; }
+        .editorial-card { background:white; border:1px solid var(--border); transition:border-color .15s; }
+        .editorial-card:hover { border-color: var(--ink); }
+        .nav-link { color:var(--ink-soft); font-weight:500; transition:color .15s; }
+        .nav-link:hover { color: var(--ink); }
+        .section-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.2em; color: #15803d; border-bottom: 1px solid var(--border); padding-bottom: 8px; margin-bottom: 16px; }
+        .fact { padding: 16px 0; border-bottom: 1px solid var(--border); }
+        .fact:last-child { border-bottom: none; }
+        .fact-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.15em; color: var(--faint); margin-bottom: 4px; }
+        .fact-value { font-family: 'Playfair Display', serif; font-size: 22px; color: var(--ink); }
+    </style>
+</head>
+<body>
+    <header class="border-b border-gray-200 bg-white">
+        <div class="bg-paper border-b border-gray-200">
+            <div class="mx-auto max-w-7xl px-6 py-1.5 flex justify-between text-xs font-mono text-gray-500 uppercase tracking-wider">
+                <span id="today-date"></span>
+                <span>The Market</span>
+            </div>
+        </div>
+        <nav class="flex items-center justify-between px-6 lg:px-8 py-4 lg:py-6">
+            <a href="/" class="flex items-center gap-2">
+                <svg class="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="6" width="12" height="12" rx="1.5"/><path d="M9 3v3M15 3v3M9 18v3M15 18v3M3 9h3M3 15h3M18 9h3M18 15h3"/></svg>
+                <span class="text-xl font-serif font-semibold">ChipMonk.tech</span>
+            </a>
+            <div class="hidden md:flex items-center gap-8 text-sm">
+                <a href="/blog" class="font-semibold nav-link">Insights</a>
+                <a href="/about" class="font-semibold nav-link">Market</a>
+                <a href="/dashboard" class="font-semibold nav-link">Dashboard</a>
+            </div>
+        </nav>
+    </header>
+
+    <main class="max-w-6xl mx-auto px-6 lg:px-8 pt-12 pb-24">
+        <header class="border-b-4 border-editorial-charcoal pb-4 mb-12">
+            <div class="text-[10px] font-mono uppercase tracking-widest text-gray-500">Market Briefing</div>
+            <h1 class="font-serif text-5xl md:text-6xl font-extrabold tracking-tight mt-1">Silicon Gold Rush</h1>
+            <p class="text-gray-500 mt-3 max-w-2xl">The shape, share, and leverage points of the AI accelerator market — sourced from primary filings and operator notes, not vendor decks.</p>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-12">
+            <!-- LEFT: Sticky Market Stats -->
+            <aside class="lg:col-span-4">
+                <div class="sticky top-6 editorial-card p-6">
+                    <h2 class="font-serif text-xl font-bold mb-2 pb-3 border-b border-gray-200">Market Stats</h2>
+                    <div class="fact">
+                        <div class="fact-label">Market Value (2024)</div>
+                        <div class="fact-value">$71.3B</div>
+                    </div>
+                    <div class="fact">
+                        <div class="fact-label">Projected (2025)</div>
+                        <div class="fact-value">$91.96B</div>
+                    </div>
+                    <div class="fact">
+                        <div class="fact-label">5-year ceiling</div>
+                        <div class="fact-value">$400B</div>
+                    </div>
+                    <div class="fact">
+                        <div class="fact-label">NVIDIA accelerator share</div>
+                        <div class="fact-value">70–95%</div>
+                    </div>
+                    <div class="fact">
+                        <div class="fact-label">NVIDIA gross margin</div>
+                        <div class="fact-value">~78%</div>
+                    </div>
+                    <div class="fact">
+                        <div class="fact-label">2023 startup investment</div>
+                        <div class="fact-value">$6B</div>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- RIGHT: Briefings -->
+            <div class="lg:col-span-8 space-y-10">
+                <section class="editorial-card p-8">
+                    <div class="section-label"><span class="text-gray-400">01</span> Scale</div>
+                    <h2 class="font-serif text-2xl font-bold mb-4">Market Shape</h2>
+                    <p class="leading-relaxed text-gray-700">
+                        The AI accelerator market sits at <strong>$71.3B</strong> in 2024 and is widely projected to push past <strong>$91B</strong> by year-end 2025 — roughly 30% YoY. The five-year ceiling, depending on inference deployment density, is forecast around <strong>$400B</strong>.
+                    </p>
+                </section>
+
+                <section class="editorial-card p-8">
+                    <div class="section-label"><span class="text-gray-400">02</span> Landscape</div>
+                    <h2 class="font-serif text-2xl font-bold mb-4">Who Holds It</h2>
+                    <div class="space-y-4 text-gray-700">
+                        <div class="border-b border-gray-100 pb-3 last:border-b-0">
+                            <div class="text-[10px] font-mono uppercase tracking-widest text-red-700 mb-1">NVIDIA</div>
+                            <p class="leading-relaxed">70–95% of AI accelerator share. ~78% gross margin. Pricing power so wide it sets the ceiling for everyone else.</p>
+                        </div>
+                        <div class="border-b border-gray-100 pb-3 last:border-b-0">
+                            <div class="text-[10px] font-mono uppercase tracking-widest text-red-700 mb-1">AMD</div>
+                            <p class="leading-relaxed">Instinct MI300X gaining traction in HBM-heavy inference. ~47% gross margin — visibly thinner runway than NVIDIA.</p>
+                        </div>
+                        <div class="border-b border-gray-100 pb-3 last:border-b-0">
+                            <div class="text-[10px] font-mono uppercase tracking-widest text-red-700 mb-1">Intel</div>
+                            <p class="leading-relaxed">Gaudi 3 positioning around price/perf parity. ~41% gross margin. Foundry pivot continues.</p>
+                        </div>
+                        <div>
+                            <div class="text-[10px] font-mono uppercase tracking-widest text-red-700 mb-1">Hyperscalers</div>
+                            <p class="leading-relaxed">Google TPUs, AWS Trainium / Inferentia, Microsoft Maia. Vertical integration eats into the merchant silicon TAM.</p>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="editorial-card p-8">
+                    <div class="section-label"><span class="text-gray-400">03</span> Leverage</div>
+                    <h2 class="font-serif text-2xl font-bold mb-4">Where the Leverage Is Shifting</h2>
+                    <ul class="space-y-3 text-gray-700">
+                        <li class="flex gap-3"><span class="text-red-700 font-bold">→</span> GPUs still dominant for training; inference is splitting toward ASICs and accelerators with HBM-rich packages.</li>
+                        <li class="flex gap-3"><span class="text-red-700 font-bold">→</span> CoWoS / advanced packaging capacity is the real bottleneck — TSMC's allocation is the real market clearing price.</li>
+                        <li class="flex gap-3"><span class="text-red-700 font-bold">→</span> Edge inference is creating a parallel chip market: device-specific NPUs, neuromorphic, ultra-low-power designs.</li>
+                        <li class="flex gap-3"><span class="text-red-700 font-bold">→</span> Silicon photonics and chiplet interconnects emerging as the next architectural axis after process-node gains slow.</li>
+                        <li class="flex gap-3"><span class="text-red-700 font-bold">→</span> National semiconductor strategies (US CHIPS, EU Chips Act, India's PLI) are reshaping where capacity gets built.</li>
+                    </ul>
+                </section>
+
+                <section class="editorial-card p-8 bg-gray-50">
+                    <div class="section-label"><span class="text-gray-400">04</span> Method</div>
+                    <h2 class="font-serif text-2xl font-bold mb-4">What ChipMonk Tracks</h2>
+                    <p class="leading-relaxed text-gray-700">
+                        Primary-source feeds from <span class="font-mono text-sm">semiwiki</span>, <span class="font-mono text-sm">EE Times</span>, <span class="font-mono text-sm">DigiTimes</span>, <span class="font-mono text-sm">SemiAnalysis</span>, <span class="font-mono text-sm">IEEE Spectrum</span>, and 10 more. Items are scored by a 4-tier LLM chain (qwen3-next:80b → Haiku → minimax-m2.7 → llama3.2:1b) for chip-hardware relevance, then enriched with a 3-paragraph WHAT/WHY/ENTITIES summary. The <a href="/blog" class="font-semibold text-blue-700">Insights feed</a> publishes daily.
+                    </p>
+                </section>
+            </div>
+        </div>
+    </main>
+
+    <footer class="border-t border-gray-200">
+        <div class="max-w-7xl mx-auto px-6 py-10 flex flex-col md:flex-row justify-between items-center gap-4">
+            <span class="text-xs text-gray-500">ChipMonk · Silicon Intelligence Hub</span>
+            <div class="text-[10px] font-mono text-gray-400">© 2026 ChipMonk.tech</div>
+        </div>
+    </footer>
+
+<script>
+document.getElementById('today-date').textContent = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+</script>
+</body>
+</html>
