@@ -407,6 +407,27 @@ const server = createServer(async (req, res) => {
     return json(res, { status: 'ok' });
   }
 
+  // ── Catalog proxy — bypasses ve-stock's missing CORS header ──
+  if (req.method === 'GET' && path === '/api/catalog/companies') {
+    const include = (params.get('include') || '').toLowerCase();
+    const limit = Math.min(parseInt(params.get('limit') || '50', 10) || 50, 50);
+    const upstream = new URL('https://ve-stock.exe.xyz/api/chipmonk/companies');
+    if (include) upstream.searchParams.set('include', include);
+    upstream.searchParams.set('limit', String(limit));
+    try {
+      const r = await fetch(upstream.toString(), { signal: AbortSignal.timeout(8000) });
+      const body = await r.text();
+      res.writeHead(r.status, {
+        'Content-Type': r.headers.get('content-type') || 'application/json',
+        'Cache-Control': 'public, max-age=300',
+      });
+      res.end(body);
+    } catch (e) {
+      return json(res, { error: 'upstream_unreachable', detail: e.message }, 502);
+    }
+    return;
+  }
+
   // ── robots.txt ──
   if (req.method === 'GET' && path === '/robots.txt') {
     const body = `User-agent: *
