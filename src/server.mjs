@@ -384,9 +384,20 @@ function _digestTitle(d, ca) {
 
 const server = createServer(async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, POST, PUT, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
+
+  // HEAD: route as GET, but suppress the response body (per RFC 7231 §4.3.2).
+  if (req.method === 'HEAD') {
+    req.method = 'GET';
+    const _end = res.end.bind(res);
+    res.write = () => true;
+    res.end = function (chunk, ...rest) {
+      // Drop the body chunk; preserve status and headers.
+      return _end();
+    };
+  }
 
   let { path, params } = parseUrl(req.url);
   console.log('[request]', req.method, req.url, '-> path:', path);
