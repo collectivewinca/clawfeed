@@ -1,10 +1,10 @@
-# Sliver Feed
+# ClawFeed
 
 AI-powered news digest tool. Automatically generates structured summaries (4H/daily/weekly/monthly) from Twitter and RSS feeds.
 
 ## Credentials & Dependencies
 
-Sliver Feed runs in **read-only mode** with zero credentials — browse digests, view feeds. Authentication features (bookmarks, sources, packs) require additional credentials.
+ClawFeed runs in **read-only mode** with zero credentials — browse digests, view feeds, switch languages. Authentication features (bookmarks, sources, packs) require additional credentials.
 
 | Credential | Purpose | Required |
 |-----------|---------|----------|
@@ -85,7 +85,7 @@ handle /digest/api/* {
     reverse_proxy localhost:8767
 }
 handle_path /digest/* {
-    root * /path/to/sliver-feed/web
+    root * /path/to/clawfeed/web
     file_server
 }
 ```

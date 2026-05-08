@@ -1,225 +1,179 @@
-# Sliver Feed
+# ChipMonk
 
-> **Stop scrolling. Start knowing.**
+> **Where the silicon signal lives.**
 
-[![GitHub](https://img.shields.io/github/v/tag/collectivewinca/sliver?label=version)](https://github.com/collectivewinca/sliver)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+A focused intelligence brief on AI accelerators, semiconductor industry, fab capacity, and chip architecture. Distilled from primary sources, summarized by a local language model, and surfaced as a public feed at **[chipmonk.tech](https://chipmonk.tech)**.
 
-AI-powered news digest that curates thousands of sources down to the highlights that matter. Generates structured summaries (4H/daily/weekly/monthly) from Twitter, RSS, and more. 
+ChipMonk is a hard fork of the [ClawFeed](https://github.com/collectivewinca/clawfeed) engine, adapted from a generic news digest into a Silicon-focused product.
 
-![Dashboard](docs/demo.gif)
+---
 
-## Features
+## Live
 
-- 📰 **Multi-frequency digests** — 4-hourly, daily, weekly, monthly summaries
-- 📡 **Sources system** — Add Twitter feeds, RSS, HackerNews, Reddit, GitHub Trending, and more
-- 📦 **Source Packs** — Share curated source bundles with the community
-- 📌 **Mark & Deep Dive** — Bookmark content for AI-powered deep analysis
-- 🎯 **Smart curation** — Configurable rules for content filtering and noise reduction
-- 👀 **Follow/Unfollow suggestions** — Based on feed quality analysis
-- 📢 **Feed output** — Subscribe to any user's digest via RSS or JSON Feed
-- 🌐 **Clean UI** — Minimalist, English-focused web dashboard
-- 🌙 **Dark/Light mode** — Theme toggle with localStorage persistence
-- 🖥️ **Web dashboard** — SPA for browsing and managing digests
-- 💾 **SQLite storage** — Fast, portable, zero-config database
-- 🔐 **Google OAuth** — Multi-user support with personal bookmarks and sources
+| | |
+|---|---|
+| Public site | [https://chipmonk.tech](https://chipmonk.tech) |
+| Origin | [https://chipmonk.exe.xyz](https://chipmonk.exe.xyz) (exe.dev VM) |
+| Repo | `collectivewinca/chipmonk` (this) — track `chipmonk-baseline` branch |
+| Engine upstream | `collectivewinca/clawfeed` (track `upstream/main`) |
 
-### Installation
+## Stack
 
-```bash
-git clone https://github.com/collectivewinca/sliver.git
-cd sliver-feed
-npm install
+```
+[ Sliver (Python) ─ scheduled 06/14/22 UTC ─ scrapes RSS feeds, scores, posts to API ]
+                                            │
+                                            ▼
+[ Caddy :80 ] ──reverse-proxy──► [ Node :8767 ] ◄── SQLite (digest.db)
+                                       │
+                                       ├─ /                landing
+                                       ├─ /blog            insights feed
+                                       ├─ /about           market overview
+                                       ├─ /dashboard       admin console
+                                       ├─ /api/showcase    public approved marks
+                                       ├─ /api/subscribe   newsletter (CF Email)
+                                       └─ /api/marks/:id/summarize  Ollama
+                                                                          │
+                                                                          ▼
+                                                            [ Ollama llama3.2:1b ]
 ```
 
-### Option 5: Docker
-```bash
-# Basic usage
-docker run -d -p 8767:8767 collectivewinca/sliver
+- **Frontend:** Tailwind via CDN, Inter + JetBrains Mono, light theme
+- **Backend:** Node 20, no framework, raw `http` module — `src/server.mjs`
+- **Database:** SQLite via `better-sqlite3` — `data/digest.db`
+- **AI:** Local Ollama on `127.0.0.1:11434`, model `llama3.2:1b`
+- **Ingest:** Sliver topic aggregator (RSS feeds: semiwiki, EE Times, DigiTimes, SemiAnalysis, The Robot Report)
+- **Email:** Cloudflare Email Sending API (welcome + admin broadcast)
+- **Process:** PM2 on the VM (no systemd as PID 1)
 
-# With persistent data
-docker run -d -p 8767:8767 -v sliver-feed-data:/app/data collectivewinca/sliver
+## Routes
 
-# With environment variables (recommended for production)
-docker run -d -p 8767:8767 \
-  -v sliver-feed-data:/app/data \
-  -e ALLOWED_ORIGINS=https://yourdomain.com \
-  -e API_KEY=your-api-key \
-  -e GOOGLE_CLIENT_ID=your-client-id \
-  -e GOOGLE_CLIENT_SECRET=your-client-secret \
-  -e SESSION_SECRET=your-session-secret \
-  collectivewinca/sliver
+| Method | Path | Auth | Purpose |
+|---|---|---|---|
+| GET | `/` | public | Landing page (showcase) |
+| GET | `/blog` | public | Insights feed (renders approved marks) |
+| GET | `/about` | public | Market overview |
+| GET | `/dashboard` | public HTML; API needs admin | Admin console |
+| GET | `/admin/login?key=<API_KEY>` | API key | Sets `cm_admin` cookie |
+| GET | `/api/health` | public | `{"status":"ok"}` |
+| GET | `/api/showcase` | public | Approved marks |
+| POST | `/api/subscribe` | public | Newsletter signup (sends welcome email) |
+| GET | `/api/subscribers/count` | public | Total active subscribers |
+| GET | `/api/subscribers` | admin | List subscribers |
+| POST | `/api/newsletter/send` | admin | Broadcast to all subscribers |
+| POST | `/api/marks/:id/summarize` | admin | Ollama summarize + auto-approve |
+| PUT | `/api/marks/:id/status` | admin | Approve/reject mark |
+
+## Auth model
+
+**No `GOOGLE_CLIENT_ID` is configured.** Admin access is gated by a shared `API_KEY`:
+
+- **Server-to-server:** send `X-Admin-Key: <API_KEY>` header
+- **Browser:** visit `/admin/login?key=<API_KEY>` once; sets `cm_admin` cookie that holds `HMAC-SHA256(API_KEY, "cm_admin:v1")` (HttpOnly, Secure, SameSite=Lax, 30-day max-age). The raw API_KEY is never sent in the cookie.
+
+To enable Google OAuth instead, set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in `.env`.
+
+## Environment
+
+`/root/clawfeed/.env` on the VM (gitignored):
+
+```sh
+SESSION_SECRET=<random>
+API_KEY=<random>
+DIGEST_PORT=8767
+ALLOWED_ORIGINS=chipmonk.tech,chipmonk.exe.xyz
+
+# Cloudflare Email Sending (welcome + broadcast)
+CLOUDFLARE_ACCOUNT_ID=<from CF dashboard>
+CLOUDFLARE_EMAIL_TOKEN=<scoped: Account · Email Sending · Send>
+EMAIL_FROM=ChipMonk Newsletter <digest@minyvinyl.com>
+EMAIL_REPLY_TO=hello@collectivewin.ca
+
+NEWSLETTER_BRAND=ChipMonk
+PUBLIC_BASE_URL=https://chipmonk.tech
 ```
 
-## Quick Start
+See `.env.example` for the full template.
 
-```bash
-# 1. Copy and edit environment config
-cp .env.example .env
-# Edit .env with your settings
+## Deployment
 
-# 2. Start the API server
-npm start
-# → API running on http://127.0.0.1:8767
+This is a single-VM deployment on exe.dev:
+
+```sh
+ssh exedev@chipmonk.exe.xyz
+# /root/clawfeed/  is the working tree (canonical source)
+# /root/sliver/    is the topic aggregator
+pm2 status                  # show clawfeed + sliver-batch
+pm2 logs clawfeed --lines 50
+pm2 restart clawfeed --update-env
 ```
 
-## Environment Variables
+The VM's `/root/clawfeed` is **canonical** — git pushes from this repo to the VM is not how we deploy. Instead, we edit on the VM, commit on the `chipmonk-baseline` branch, and push to GitHub from the VM clone for backup/audit.
 
-Create a `.env` file in the project root:
+Cloudflare DNS is set so `chipmonk.tech` is a CNAME → `chipmonk.exe.xyz` with **proxied = false (grey cloud)**. exe.dev's edge auto-issues an LE cert for the custom domain on first request. Don't enable CF proxy on the apex — it breaks exe.dev's hostname routing.
 
-| Variable | Description | Required | Default |
-|----------|-------------|----------|---------|
-| `GOOGLE_CLIENT_ID` | Google OAuth client ID | No* | - |
-| `GOOGLE_CLIENT_SECRET` | Google OAuth client secret | No* | - |
-| `SESSION_SECRET` | Session encryption key | No* | - |
-| `API_KEY` | API key for digest creation | No | - |
-| `DIGEST_PORT` | Server port | No | 8767 |
-| `ALLOWED_ORIGINS` | Allowed origins for CORS | No | localhost |
+## Sliver ingest
 
-\*Required for authentication features. Without OAuth, the app runs in read-only mode.
+```sh
+# Manual run (rare):
+ssh exedev@chipmonk.exe.xyz '/root/sliver/run-clawfeed-push.sh'
 
-## Authentication Setup
-
-To enable Google OAuth login:
-
-1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a new project or select existing one
-3. Enable the Google+ API
-4. Create OAuth 2.0 credentials
-5. Add your domain to authorized origins
-6. Add callback URL: `https://yourdomain.com/api/auth/callback`
-7. Set credentials in `.env`
-
-## API
-
-All endpoints prefixed with `/api/`.
-
-### Digests
-
-| Method | Endpoint | Description | Auth |
-|--------|----------|-------------|------|
-| `GET` | `/api/digests` | List digests `?type=4h&limit=20&offset=0` | - |
-| `GET` | `/api/digests/:id` | Get single digest | - |
-| `POST` | `/api/digests` | Create digest | API Key |
-
-### Auth
-
-| Method | Endpoint | Description | Auth |
-|--------|----------|-------------|------|
-| `GET` | `/api/auth/config` | Auth availability check | - |
-| `GET` | `/api/auth/google` | Start OAuth flow | - |
-| `GET` | `/api/auth/callback` | OAuth callback | - |
-| `GET` | `/api/auth/me` | Current user info | Yes |
-| `POST` | `/api/auth/logout` | Logout | Yes |
-
-### Marks (Bookmarks)
-
-| Method | Endpoint | Description | Auth |
-|--------|----------|-------------|------|
-| `GET` | `/api/marks` | List bookmarks | Yes |
-| `POST` | `/api/marks` | Add bookmark `{ url, title?, note? }` | Yes |
-| `DELETE` | `/api/marks/:id` | Remove bookmark | Yes |
-
-### Sources
-
-| Method | Endpoint | Description | Auth |
-|--------|----------|-------------|------|
-| `GET` | `/api/sources` | List user's sources | Yes |
-| `POST` | `/api/sources` | Create source `{ name, type, config }` | Yes |
-| `PUT` | `/api/sources/:id` | Update source | Yes |
-| `DELETE` | `/api/sources/:id` | Soft-delete source | Yes |
-| `GET` | `/api/sources/detect` | Auto-detect source type from URL | Yes |
-
-### Source Packs
-
-| Method | Endpoint | Description | Auth |
-|--------|----------|-------------|------|
-| `GET` | `/api/packs` | Browse public packs | - |
-| `POST` | `/api/packs` | Create pack from your sources | Yes |
-| `POST` | `/api/packs/:id/install` | Install pack (subscribe to its sources) | Yes |
-
-### Feeds
-
-| Method | Endpoint | Description | Auth |
-|--------|----------|-------------|------|
-| `GET` | `/feed/:slug` | User's digest feed (HTML) | - |
-| `GET` | `/feed/:slug.json` | JSON Feed format | - |
-| `GET` | `/feed/:slug.rss` | RSS format | - |
-
-### Config
-
-| Method | Endpoint | Description | Auth |
-|--------|----------|-------------|------|
-| `GET` | `/api/changelog` | Changelog `?lang=zh\|en` | - |
-| `GET` | `/api/roadmap` | Roadmap `?lang=zh\|en` | - |
-
-## Reverse Proxy
-
-Example Caddy configuration:
-
-```caddyfile
-handle /digest/api/* {
-    uri strip_prefix /digest/api
-    reverse_proxy localhost:8767
-}
-handle_path /digest/* {
-    root * /path/to/sliver-feed/web
-    file_server
-}
+# Scheduled (PM2 cron):
+pm2 describe sliver-batch    # cron: 0 6,14,22 * * * UTC, no autorestart
 ```
 
-## Customization
+The wrapper script at `/root/sliver/run-clawfeed-push.sh` exports `PYTHONPATH=/root/sliver/src` before invoking `scripts/push_to_clawfeed.py`. **This is load-bearing** — `pip install -e .` puts a stale copy in `site-packages/` that wins on `sys.path` without the override.
 
-- **Curation rules**: Edit `templates/curation-rules.md` to control content filtering
-- **Digest format**: Edit `templates/digest-prompt.md` to customize AI output format
+## Ollama summarization
 
-## Source Types
+`POST /api/marks/:id/summarize` does:
+1. SSRF-safe fetch of `mark.url` with 10s timeout
+2. Strip HTML to plain text, truncate to 3500 chars
+3. Send to local Ollama `llama3.2:1b` with a chip-hardware-focused prompt (low temperature, 350 tokens cap)
+4. Persist as `note`, mark `status='approved'`
+5. Return `{ ok, summary, sourcedBody: bool }`
 
-| Type | Example | Description |
-|------|---------|-------------|
-| `twitter_feed` | `@karpathy` | Twitter/X user feed |
-| `twitter_list` | List URL | Twitter list |
-| `rss` | Any RSS/Atom URL | RSS feed |
-| `hackernews` | HN Front Page | Hacker News |
-| `reddit` | `/r/MachineLearning` | Subreddit |
-| `github_trending` | `language=python` | GitHub trending repos |
-| `website` | Any URL | Website scraping |
-| `digest_feed` | Sliver user slug | Another user's digest |
-| `custom_api` | JSON endpoint | Custom API |
+Roughly 50–60s per mark on this VM's CPU.
 
-## Development
+## Newsletter
 
-```bash
-npm run dev  # Start with --watch for auto-reload
+The `/api/subscribe` endpoint:
+- Validates email + dedupes via `UNIQUE COLLATE NOCASE`
+- Stores hashed source IP for abuse traceability
+- Fires a fire-and-forget welcome email via the Cloudflare Email Sending API (only on first subscribe)
+
+Admin broadcast:
+
+```sh
+curl -X POST https://chipmonk.tech/api/newsletter/send \
+  -H "X-Admin-Key: <API_KEY>" \
+  -H "Content-Type: application/json" \
+  -d '{"subject":"Silicon dispatch — ...","html":"<p>...</p>","text":"...","dryRun":true}'
 ```
 
-### Testing
+## Repo conventions
 
-```bash
-cd test
-./setup.sh    # Create test users
-./e2e.sh      # Run 66 E2E tests
-./teardown.sh # Clean up
+```
+.
+├── README.md              ← you are here
+├── CHIPMONK.md            ← what's chipmonk-specific vs upstream clawfeed
+├── PROJECT_UPDATE.md      ← session-by-session status notes
+├── migrations/            ← SQL migrations 001-012 (012 = subscribers)
+├── src/
+│   ├── server.mjs         ← request router, all routes, CF email helpers
+│   └── db.mjs             ← SQLite wrapper + migration runner
+├── web/
+│   ├── showcase.html      ← /
+│   ├── blog.html          ← /blog
+│   ├── about.html         ← /about
+│   └── index.html         ← /dashboard (upstream-derived, light-themed)
+└── data/                  ← SQLite db, gitignored
 ```
 
-## Architecture
-
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for multi-tenant design and scale analysis.
-
-## Roadmap
-
-See [ROADMAP.md](ROADMAP.md) or the in-app roadmap page.
-
-## Contributing
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+**Branch policy:**
+- `chipmonk-baseline` is the working branch (deploys here)
+- `main` is the legacy React/Vercel/StackBlitz version (kept for archive)
+- Sync upstream engine fixes via `git fetch upstream && git cherry-pick <sha>`
 
 ## License
 
-MIT License — see [LICENSE](LICENSE) for details.
-
-Copyright 2026 VE LAB
+MIT, inherited from upstream ClawFeed. See `LICENSE`.

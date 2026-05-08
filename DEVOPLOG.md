@@ -1,15 +1,15 @@
 # DevOp Log
 
-Development and operations log for Sliver. Records the full R&D lifecycle — feature development, staging validation, production release, and infrastructure changes.
+Development and operations log for ClawFeed. Records the full R&D lifecycle — feature development, staging validation, production release, and infrastructure changes.
 
 ## 2026-02-24 — v0.8.1 (TG hotfix + subtitle links)
 
 **Status:** Staging verified ✅ | Production: pending merge
 
 **Changes:**
-- #16 — community link button + info banner (i18n)
-- #17 — Replace airplane emoji with channel SVG icon + clickable community link
-- #18 — Subtitle @mentions link to Twitter profiles (Jessie@Sliver, Lisa@Sliver)
+- #16 — TG group link button + info banner (i18n)
+- #17 — Replace airplane emoji with Telegram SVG icon + clickable TG group link
+- #18 — Subtitle @mentions link to Twitter profiles (Jessie@ZylosAI, Lisa@OpenClaw)
 
 **Docs/PRD (no runtime impact):**
 - #8 — ClawMark Digest embed PRD

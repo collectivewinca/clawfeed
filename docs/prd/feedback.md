@@ -4,9 +4,9 @@
 
 ## 背景
 
-Sliver 需要一个让用户提交反馈的渠道。需求包括：用户可以在应用内提交反馈消息，管理员可以查看和回复，反馈提交后可通知到 Lark 群。
+ClawFeed 需要一个让用户提交反馈的渠道。需求包括：用户可以在应用内提交反馈消息，管理员可以查看和回复，反馈提交后可通知到 Lark 群。
 
-### 设计原则（参考 [Lisa 研究文档](https://lisa.kevinhe.io/research/sliver-feed-feedback-prd.md)）
+### 设计原则（参考 [Lisa 研究文档](https://lisa.kevinhe.io/research/clawfeed-feedback-prd.md)）
 
 - **自建 CRM 优先**：数据存 SQLite，IM（Lark）只是通知渠道，不是数据源
 - **HxA 模式**：Agent 自动分类 + 回复简单问题，复杂的标 `needs_human` 转人处理

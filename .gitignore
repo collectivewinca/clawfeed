@@ -4,3 +4,4 @@ data/
 *.db
 *.db-shm
 *.db-wal
+/clawfeed.snapshot.*.tar.gz

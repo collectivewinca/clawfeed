@@ -1,4 +1,4 @@
-# Sliver — 产品设计文档
+# ClawFeed — 产品设计文档
 
 > AI 信息 digest 开源工具。可作为 ClawHub Skill 安装，也可独立部署。
 
@@ -6,7 +6,7 @@
 开源 AI 信息摘要工具，帮助用户从 Twitter/RSS 等信息源自动生成结构化简报。
 
 ## 分发方式
-- **ClawHub Skill** — `sliver skill install sliver-feed`
+- **ClawHub Skill** — `openclaw skill install clawfeed`
 - **独立部署** — clone repo 自己跑
 
 ---
@@ -34,7 +34,7 @@
 | 🌐 共享 | Feed 精选 | 公共信息流 |
 | 🌐 共享 | 推荐关注/取关 | 公共建议 |
 | 👤 个人 | Mark（收藏） | 用户自己标记感兴趣的内容 |
-| 👤 个人 | 接收渠道 | channel/Discord/Email/webhook |
+| 👤 个人 | 接收渠道 | Telegram/Discord/Email/webhook |
 | 👤 个人 | 信息源（开源版） | 自定义 Twitter/RSS 源 |
 | 👤 个人 | Curation Rules（开源版） | 自定义筛选规则 |
 
@@ -45,10 +45,10 @@
 ### 开源版（Self-hosted）
 - 用户完全自主
 - 自定义信息源（Twitter/RSS/Reddit/HN）
-- 自定义接收渠道（channel/Discord/Email）
+- 自定义接收渠道（Telegram/Discord/Email）
 - 自定义 curation rules
 - 本地数据，无需登录
-- 安装：`sliver skill install sliver-feed` 或 git clone
+- 安装：`openclaw skill install clawfeed` 或 git clone
 
 ### 公开服务版（Hosted）
 - 域名：`digest.lenspal.ai`（或类似）
@@ -86,7 +86,7 @@
 └──────────────┬──────────────────────────┘
                │
 ┌──────────────▼──────────────────────────┐
-│       Digest Engine (Sliver Skill)    │
+│       Digest Engine (OpenClaw Skill)    │
 │   Cron → Fetch feeds → AI summarize     │
 │   → Generate markdown → Store           │
 └─────────────────────────────────────────┘
@@ -95,7 +95,7 @@
 ### Skill 结构（ClawHub）
 
 ```
-sliver-feed/
+clawfeed/
 ├── SKILL.md              # Skill 入口文档
 ├── package.json
 ├── src/
@@ -121,7 +121,7 @@ sliver-feed/
 ## 实施路线
 
 ### Phase 1: 重构现有代码 → 开源 repo
-- [ ] 创建 `sliver-feed` repo
+- [ ] 创建 `clawfeed` repo
 - [ ] 抽取 dashboard 前端（现有 index.html → SPA）
 - [ ] 抽取 digest 生成逻辑（从 cron job prompt 中提取）
 - [ ] 抽取 curation rules 为模板

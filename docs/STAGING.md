@@ -1,4 +1,4 @@
-# Sliver Staging Environment
+# ClawFeed Staging Environment
 
 ## URLs
 - **Staging**: https://lisa.kevinhe.io/staging/
@@ -15,25 +15,25 @@
 
 ```bash
 # Start
-launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.sliver.sliver-feed-staging.plist
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.openclaw.clawfeed-staging.plist
 
 # Stop
-launchctl bootout gui/$(id -u) ~/Library/LaunchAgents/com.sliver.sliver-feed-staging.plist
+launchctl bootout gui/$(id -u) ~/Library/LaunchAgents/com.openclaw.clawfeed-staging.plist
 
 # Manual run
-cd /Users/kevinhe/clawd/sliver-feed
+cd /Users/kevinhe/clawd/clawfeed
 ./scripts/start-staging.sh
 ```
 
 ## Logs
 ```bash
-tail -f /tmp/sliver-feed-staging-out.log
-tail -f /tmp/sliver-feed-staging-err.log
+tail -f /tmp/clawfeed-staging-out.log
+tail -f /tmp/clawfeed-staging-err.log
 ```
 
 ## Seed Data
 ```bash
-cd /Users/kevinhe/clawd/sliver-feed
+cd /Users/kevinhe/clawd/clawfeed
 sqlite3 data/digest-staging.db "INSERT INTO digests (type, content, created_at) VALUES ('4h', '## Test\n• Item 1\n• Item 2', datetime('now'));"
 ```
 

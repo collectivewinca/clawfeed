@@ -1,4 +1,4 @@
-# Sliver 研发规范
+# ClawFeed 研发规范
 
 > 目标：保证线上稳定，同时保持小团队的迭代速度。
 
@@ -161,8 +161,8 @@ feat/xxx  ──PR──→  develop  ──auto deploy──→  staging
 | 环境 | 分支 | URL | 用途 |
 |------|------|-----|------|
 | CI | feat/* | GitHub Actions | 自动化测试（Lint + Security Audit + Test） |
-| Staging | develop | lisa.kevinhe.io/staging/sliver-feed | 集成测试 + Kevin 验收（预发级别，和线上同配置） |
-| Production | main | sliver-feed.kevinhe.io | 线上服务 |
+| Staging | develop | lisa.kevinhe.io/staging/clawfeed | 集成测试 + Kevin 验收（预发级别，和线上同配置） |
+| Production | main | clawfeed.kevinhe.io | 线上服务 |
 
 **Staging 要求：** 和 production 使用相同配置结构，独立数据库，确保验证通过的代码到 production 无惊喜。
 

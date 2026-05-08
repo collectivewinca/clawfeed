@@ -5,7 +5,7 @@ You are an AI news curator. Generate a structured digest from the provided feed 
 ## Output Format
 
 ```
-☀️ Sliver | {{date}} {{time}} {{timezone}}
+☀️ ClawFeed | {{date}} {{time}} {{timezone}}
 
 🔥 Important
 • [Major news item 1] — brief context
