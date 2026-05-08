@@ -432,11 +432,10 @@ ${items}
   }
 
   // ── SPA Routes ──
-  if (req.method === 'GET' && (path === '/' || path === '/dashboard' || path === '/blog' || path === '/about' || path.startsWith('/pack/') || path.startsWith('/tracker/') || path === '/tracker')) {
+  if (req.method === 'GET' && (path === '/' || path === '/dashboard' || path === '/blog' || path === '/about' || path.startsWith('/tracker/') || path === '/tracker')) {
     try {
-      let file = 'index.html';
-      if (path === '/') file = 'showcase.html';
-      else if (path === '/blog') file = 'blog.html';
+      let file = 'showcase.html';
+      if (path === '/blog') file = 'blog.html';
       else if (path === '/about') file = 'about.html';
       else if (path === '/dashboard') file = 'dashboard.html';
       else if (path === '/tracker' || path.startsWith('/tracker/')) file = 'tracker.html';

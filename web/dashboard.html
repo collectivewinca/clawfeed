@@ -10,7 +10,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;800;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script>tailwind.config={theme:{extend:{fontFamily:{serif:["Playfair Display","serif"],sans:["Inter","sans-serif"],mono:["JetBrains Mono","monospace"]},colors:{paper:"#FCFCFA","editorial-charcoal":"#121212"}}}}</script>
 <style>
-:root{--paper:#FCFCFA;--ink:#121212;--ink-soft:#334155;--muted:#64748B;--border:#E5E7EB;--accent:#2563EB;--green:#15803d;--red:#b91c1c;--amber:#b45309;--signal-up:#059669;--signal-quiet:#78716C}
+:root{--paper:#FCFCFA;--ink:#121212;--ink-soft:#334155;--muted:#64748B;--border:#E5E7EB;--accent:#2563EB;--green:#15803d;--red:#b91c1c;--amber:#b45309}
 body{background:var(--paper);color:var(--ink);-webkit-font-smoothing:antialiased;font-family:Inter,sans-serif}
 .editorial-card{background:white;border:1px solid var(--border);transition:border-color .15s}
 .editorial-card:hover{border-color:var(--ink)}
@@ -40,8 +40,8 @@ select,input{font-family:inherit}
 .filter-input{padding:6px 10px;border:1px solid var(--border);background:white;font-size:13px;color:var(--ink)}
 .filter-input:focus{outline:none;border-color:var(--ink)}
 .signal-dot{display:inline-block;width:8px;height:8px;border-radius:50%}
-.signal-dot.up{background:var(--signal-up)}
-.signal-dot.quiet{background:var(--signal-quiet)}
+.signal-dot.up{background:var(--green)}
+.signal-dot.quiet{background:var(--muted)}
 .hover-card{transition:all .15s}
 .hover-card:hover{transform:translateY(-1px);box-shadow:0 2px 8px rgba(0,0,0,.06)}
 </style>

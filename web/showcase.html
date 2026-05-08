@@ -117,7 +117,7 @@
                                 class="w-full border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:border-editorial-charcoal" />
                             <button type="submit" class="w-full bg-editorial-charcoal text-white px-3 py-2 text-sm hover:bg-gray-700 transition">Subscribe</button>
                             <p id="subscribe-status" class="text-xs" style="min-height:1rem;"></p>
-                            <p class="text-[10px] mono text-gray-400"><span id="sub-count">—</span> subscribers</p>
+                            <p class="text-[10px] font-mono text-gray-400"><span id="sub-count">—</span> subscribers</p>
                         </form>
                     </div>
                 </div>
@@ -152,25 +152,25 @@
                 </div>
 
                 <figure class="py-4 border-y border-gray-200">
-                    <figcaption class="text-[10px] mono uppercase tracking-widest text-gray-500 mb-6">AI Chip Market (USD bn)</figcaption>
+                    <figcaption class="text-[10px] font-mono uppercase tracking-widest text-gray-500 mb-6">AI Chip Market (USD bn)</figcaption>
                     <div class="flex items-end gap-6 h-32 px-1">
                         <div class="flex-1 flex flex-col items-center gap-2">
                             <div class="w-full bg-gray-200 relative" style="height:18%;">
                                 <span class="absolute -top-6 left-1/2 -translate-x-1/2 text-xs font-bold">$71.3</span>
                             </div>
-                            <span class="text-[10px] mono text-gray-400">2024</span>
+                            <span class="text-[10px] font-mono text-gray-400">2024</span>
                         </div>
                         <div class="flex-1 flex flex-col items-center gap-2">
                             <div class="w-full bg-editorial-charcoal h-full relative">
                                 <span class="absolute -top-6 left-1/2 -translate-x-1/2 text-xs font-bold">$400</span>
                             </div>
-                            <span class="text-[10px] mono text-gray-400">2029E</span>
+                            <span class="text-[10px] font-mono text-gray-400">2029E</span>
                         </div>
                     </div>
                 </figure>
 
                 <figure class="py-4 border-b border-gray-200">
-                    <figcaption class="text-[10px] mono uppercase tracking-widest text-gray-500 mb-3">Accelerator Share</figcaption>
+                    <figcaption class="text-[10px] font-mono uppercase tracking-widest text-gray-500 mb-3">Accelerator Share</figcaption>
                     <div id="accelerator-share-bar" class="relative h-9 w-full bg-gray-100 flex"></div>
                 </figure>
 
@@ -197,7 +197,7 @@
                 <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="6" width="12" height="12" rx="1.5"/><path d="M9 3v3M15 3v3M9 18v3M15 18v3M3 9h3M3 15h3M18 9h3M18 15h3"/></svg>
                 <span class="text-xs text-gray-500">ChipMonk · Silicon Intelligence Hub</span>
             </div>
-            <div class="text-[10px] mono text-gray-400">© 2026 ChipMonk.tech</div>
+            <div class="text-[10px] font-mono text-gray-400">© 2026 ChipMonk.tech</div>
         </div>
     </footer>
 
@@ -243,7 +243,7 @@ async function loadBrief() {
         const d = list[0];
         const dt = new Date(d.created_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
         document.getElementById('brief-root').innerHTML = `
-            <div class="text-[10px] mono uppercase tracking-widest text-gray-500 mb-3">${dt}</div>
+            <div class="text-[10px] font-mono uppercase tracking-widest text-gray-500 mb-3">${dt}</div>
             <div class="summary-block">${renderMarkdown(d.content)}</div>`;
     } catch {}
 }
@@ -261,8 +261,8 @@ async function loadFeed() {
             return `
             <article class="editorial-card p-6">
                 <div class="flex justify-between items-center mb-3">
-                    <span class="text-[10px] mono uppercase tracking-widest text-red-700">${src}</span>
-                    <span class="text-[10px] mono text-gray-400">${dt}</span>
+                    <span class="text-[10px] font-mono uppercase tracking-widest text-red-700">${src}</span>
+                    <span class="text-[10px] font-mono text-gray-400">${dt}</span>
                 </div>
                 <h3 class="font-serif text-lg font-bold leading-snug mb-3">${item.title}</h3>
                 ${noteSnip ? `<p class="text-sm leading-relaxed text-gray-600 mb-4 line-clamp-3">${noteSnip}</p>` : ''}
