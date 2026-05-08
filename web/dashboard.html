@@ -99,10 +99,11 @@ select,input{font-family:inherit}
 <div class="text-xs text-gray-400 mt-1 font-mono" id="signal-next-label"></div>
 </div>
 </div>
-<nav class="flex items-center gap-8 border-b border-gray-200 mb-8">
+<nav class="flex items-center gap-8 border-b border-gray-200 mb-8 overflow-x-auto">
 <button class="tab-btn active" data-tab="briefs">Briefs</button>
 <button class="tab-btn" data-tab="marks">Marks</button>
 <button class="tab-btn" data-tab="review">Review</button>
+<button class="tab-btn" data-tab="candidates">Candidates</button>
 <div class="ml-auto flex items-center gap-3"><span id="admin-indicator" class="text-xs font-mono uppercase tracking-wider text-gray-400"></span></div>
 </nav>
 <section id="panel-briefs" class="panel"><div id="briefs-list"><div class="text-gray-400 font-mono text-sm">Loading briefs...</div></div></section>
@@ -117,6 +118,19 @@ select,input{font-family:inherit}
 <div id="marks-list"><div class="text-gray-400 font-mono text-sm">Loading marks...</div></div>
 </section>
 <section id="panel-review" class="panel hidden"><div id="review-content"></div></section>
+<section id="panel-candidates" class="panel hidden">
+<div class="flex flex-wrap items-center gap-3 mb-6">
+<button class="btn btn-primary" id="cand-tab-pending">Pending <span class="ml-1 opacity-60" id="cand-count-pending">0</span></button>
+<button class="btn" id="cand-tab-approved">Approved <span class="ml-1 opacity-60" id="cand-count-approved">0</span></button>
+<button class="btn" id="cand-tab-rejected">Rejected <span class="ml-1 opacity-60" id="cand-count-rejected">0</span></button>
+<div class="ml-auto flex items-center gap-2">
+<button class="btn" id="cand-extract">Run extraction</button>
+<a class="btn" id="cand-export" href="/api/candidates/export.json">Export approved &darr;</a>
+</div>
+</div>
+<div id="cand-status" class="text-[10px] font-mono text-gray-500 mb-4"></div>
+<div id="cand-list"><div class="text-gray-400 font-mono text-sm">Loading candidates...</div></div>
+</section>
 </main>
 <footer class="border-t border-gray-200">
 <div class="max-w-7xl mx-auto px-6 py-10 flex flex-col md:flex-row justify-between items-center gap-4">
@@ -394,6 +408,117 @@ async function setStatus(id, status) {
     }
 }
 
+// ── Candidates tab (extracted entities awaiting human verdict) ──────
+let candTabStatus = "pending";
+async function loadCandidates() {
+    const list = document.getElementById("cand-list");
+    const statusEl = document.getElementById("cand-status");
+    list.innerHTML = '<div class="text-gray-400 font-mono text-sm">Loading…</div>';
+    try {
+        const r = await fetch(API + "/candidates?status=" + candTabStatus, { credentials: "same-origin" });
+        if (r.status === 401) { list.innerHTML = '<div class="editorial-card p-6 text-gray-500">Sign in as admin to review candidates.</div>'; return; }
+        const d = await r.json();
+        // Update counts
+        for (const k of ["pending", "approved", "rejected"]) {
+            document.getElementById("cand-count-" + k).textContent = d.counts?.[k] || 0;
+        }
+        const cat = d.catalog || {};
+        statusEl.textContent = `Catalog: ${cat.loaded ? cat.count + ' embeddings loaded' : 'not loaded'}` + (cat.loadedAt ? ` · ${cat.loadedAt}` : '');
+        // Render
+        const cands = d.candidates || [];
+        if (!cands.length) {
+            list.innerHTML = `<div class="editorial-card p-6 text-gray-500 italic">No ${candTabStatus} candidates.</div>`;
+            return;
+        }
+        list.innerHTML = cands.map(c => {
+            const score = c.best_known_score != null ? Math.round(c.best_known_score * 100) + "%" : "—";
+            const verdict = c.classifier_verdict || "—";
+            const actions = candTabStatus === "pending"
+                ? '<div class="flex gap-2 mt-3">'
+                  + '<button class="btn btn-approve" onclick="setCandidateStatus(' + c.id + ',\'approved\')">Approve</button>'
+                  + '<button class="btn btn-reject" onclick="setCandidateStatus(' + c.id + ',\'rejected\')">Reject &amp; stoplist</button>'
+                  + '</div>'
+                : '<div class="flex gap-2 mt-3">'
+                  + '<button class="btn" onclick="setCandidateStatus(' + c.id + ',\'pending\')">Re-queue</button>'
+                  + '</div>';
+            return '<article class="editorial-card p-4 mb-3">'
+                + '<div class="flex items-start justify-between gap-3">'
+                + '<div class="min-w-0 flex-1">'
+                + '<h3 class="font-serif text-lg font-semibold leading-snug">' + escapeHtml(c.name) + '</h3>'
+                + '<div class="flex flex-wrap items-center gap-2 mt-1 text-[10px] font-mono text-gray-500">'
+                + '<span>seen ' + c.source_count + '×</span>'
+                + (c.best_known_match ? '<span>· nearest <strong>' + escapeHtml(c.best_known_match) + '</strong> @ ' + score + '</span>' : '')
+                + '<span class="pill pill-source">' + escapeHtml(verdict) + '</span>'
+                + '</div>'
+                + (c.notes ? '<p class="text-xs text-gray-500 italic mt-1">' + escapeHtml(c.notes) + '</p>' : '')
+                + '</div>'
+                + '</div>'
+                + actions
+                + '</article>';
+        }).join("");
+    } catch (e) {
+        list.innerHTML = '<div class="text-red-700 italic">Failed to load candidates: ' + escapeHtml(e.message) + '</div>';
+    }
+}
+
+async function setCandidateStatus(id, status) {
+    if (!isAdmin) return;
+    try {
+        const r = await fetch(API + "/candidates/" + id, {
+            method: "PUT", credentials: "same-origin",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status }),
+        });
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        loadCandidates();
+    } catch (e) {
+        alert("Update failed: " + e.message);
+    }
+}
+
+async function runExtraction() {
+    if (!isAdmin) return;
+    const btn = document.getElementById("cand-extract");
+    const original = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = "Extracting…";
+    try {
+        const r = await fetch(API + "/candidates/extract", {
+            method: "POST", credentials: "same-origin",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ lookbackDays: 30 }),
+        });
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.detail || d.error || ("HTTP " + r.status));
+        const cls = d.classifications || {};
+        document.getElementById("cand-status").textContent =
+            `Scanned ${d.scanned_marks} marks → ${d.extracted_unique} unique entities → `
+            + `known ${cls.known || 0}, candidates ${cls.candidate || 0}, not-a-company ${cls.not_a_company || 0} `
+            + `→ queue: +${d.queue_inserted || 0} new, +${d.queue_incremented || 0} re-seen`;
+        loadCandidates();
+    } catch (e) {
+        alert("Extraction failed: " + e.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = original;
+    }
+}
+
+function setupCandidatesUi() {
+    for (const k of ["pending", "approved", "rejected"]) {
+        document.getElementById("cand-tab-" + k).addEventListener("click", () => {
+            candTabStatus = k;
+            for (const j of ["pending", "approved", "rejected"]) {
+                const b = document.getElementById("cand-tab-" + j);
+                if (j === k) b.classList.add("btn-primary");
+                else b.classList.remove("btn-primary");
+            }
+            loadCandidates();
+        });
+    }
+    document.getElementById("cand-extract").addEventListener("click", runExtraction);
+}
+
 // ── Tab switching ────────────────────────────────────────────────────
 function setupTabs() {
     document.querySelectorAll(".tab-btn").forEach(btn => {
@@ -406,6 +531,7 @@ function setupTabs() {
             if (tab === "marks") loadMarks();
             else if (tab === "review") loadReview();
             else if (tab === "briefs") loadBriefs();
+            else if (tab === "candidates") loadCandidates();
         });
     });
 }
@@ -414,6 +540,7 @@ function setupTabs() {
 (async () => {
     await checkAdmin();
     setupTabs();
+    setupCandidatesUi();
     await loadPipelineSignal();
     loadBriefs(); // initial active tab
 })();

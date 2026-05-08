@@ -129,6 +129,17 @@ export function getDb(dbPath) {
   } catch (e) {
     if (!e.message.includes('already exists')) console.error('Migration 012:', e.message);
   }
+  // Migration 013: Company candidates + stoplist
+  try {
+    const sql13 = readFileSync(join(ROOT, 'migrations', '013_company_candidates.sql'), 'utf8');
+    for (const stmt of sql13.split(';').filter(s => s.trim())) {
+      try { _db.exec(stmt + ';'); } catch (e) {
+        if (!e.message.includes('already exists') && !e.message.includes('duplicate column') && !e.message.includes('UNIQUE')) throw e;
+      }
+    }
+  } catch (e) {
+    if (!e.message.includes('already exists')) console.error('Migration 013:', e.message);
+  }
   // Backfill slugs for existing users
   _backfillSlugs(_db);
   return _db;
@@ -534,4 +545,72 @@ export function getConfig(db) {
 export function setConfig(db, key, value) {
   const v = typeof value === 'string' ? value : JSON.stringify(value);
   db.prepare('INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)').run(key, v);
+}
+
+// ── Company candidates (extracted from KEY ENTITIES, classified via embeddings) ──
+
+function normalizeCompanyName(s) {
+  return String(s || '').trim().toLowerCase().replace(/\s+/g, ' ').replace(/[.,;:]+$/, '');
+}
+
+export function isStoplisted(db, name) {
+  const n = normalizeCompanyName(name);
+  return !!db.prepare('SELECT 1 FROM company_stoplist WHERE name_normalized = ?').get(n);
+}
+
+export function addToStoplist(db, name, reason) {
+  const n = normalizeCompanyName(name);
+  if (!n) return false;
+  db.prepare('INSERT OR IGNORE INTO company_stoplist (name_normalized, reason) VALUES (?, ?)').run(n, reason || 'rejected');
+  return true;
+}
+
+export function upsertCandidate(db, { name, classifierVerdict, bestKnownMatch, bestKnownScore }) {
+  const n = normalizeCompanyName(name);
+  if (!n) return null;
+  const existing = db.prepare('SELECT id, source_count FROM company_candidates WHERE name_normalized = ?').get(n);
+  if (existing) {
+    db.prepare('UPDATE company_candidates SET source_count = source_count + 1, last_seen_at = CURRENT_TIMESTAMP WHERE id = ?').run(existing.id);
+    return { id: existing.id, action: 'incremented' };
+  }
+  const r = db.prepare(
+    `INSERT INTO company_candidates
+     (name, name_normalized, status, classifier_verdict, best_known_match, best_known_score)
+     VALUES (?, ?, 'pending', ?, ?, ?)`
+  ).run(name.trim(), n, classifierVerdict || null, bestKnownMatch || null, bestKnownScore != null ? bestKnownScore : null);
+  return { id: r.lastInsertRowid, action: 'inserted' };
+}
+
+export function listCandidates(db, { status = 'pending', limit = 200 } = {}) {
+  return db.prepare(
+    `SELECT id, name, status, source_count, best_known_match, best_known_score,
+            classifier_verdict, first_seen_at, last_seen_at, reviewed_at, notes
+     FROM company_candidates
+     WHERE status = ?
+     ORDER BY source_count DESC, first_seen_at DESC
+     LIMIT ?`
+  ).all(status, limit);
+}
+
+export function setCandidateStatus(db, id, status, notes) {
+  if (!['pending', 'approved', 'rejected'].includes(status)) {
+    return { ok: false, error: 'invalid_status' };
+  }
+  const row = db.prepare('SELECT name_normalized FROM company_candidates WHERE id = ?').get(id);
+  if (!row) return { ok: false, error: 'not_found' };
+  db.prepare(
+    `UPDATE company_candidates SET status = ?, reviewed_at = CURRENT_TIMESTAMP, notes = ? WHERE id = ?`
+  ).run(status, notes || null, id);
+  // If rejected, also add to stoplist so re-extractions skip it
+  if (status === 'rejected') {
+    addToStoplist(db, row.name_normalized, 'rejected');
+  }
+  return { ok: true };
+}
+
+export function countCandidatesByStatus(db) {
+  const rows = db.prepare('SELECT status, COUNT(*) AS n FROM company_candidates GROUP BY status').all();
+  const out = { pending: 0, approved: 0, rejected: 0 };
+  for (const r of rows) out[r.status] = r.n;
+  return out;
 }

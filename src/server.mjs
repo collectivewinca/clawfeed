@@ -7,7 +7,8 @@ import { fileURLToPath } from 'url';
 import { randomBytes, createHmac, timingSafeEqual } from 'crypto';
 import { lookup } from 'dns/promises';
 import { isIP } from 'net';
-import { getDb, listDigests, getDigest, createDigest, listMarks, listMarkSources, createMark, deleteMark, updateMarkStatus, getConfig, setConfig, upsertUser, createSession, getSession, deleteSession, listSources, getSource, createSource, updateSource, deleteSource, getSourceByTypeConfig, getUserBySlug, listDigestsByUser, countDigestsByUser, createPack, getPack, getPackBySlug, listPacks, incrementPackInstall, deletePack, listSubscriptions, subscribe, unsubscribe, bulkSubscribe, isSubscribed, createFeedback, getUserFeedback, getAllFeedback, replyToFeedback, updateFeedbackStatus, markFeedbackRead, getUnreadFeedbackCount, addSubscriber, listSubscribers, countSubscribers, unsubscribeNewsletter } from './db.mjs';
+import { getDb, listDigests, getDigest, createDigest, listMarks, listMarkSources, createMark, deleteMark, updateMarkStatus, getConfig, setConfig, upsertUser, createSession, getSession, deleteSession, listSources, getSource, createSource, updateSource, deleteSource, getSourceByTypeConfig, getUserBySlug, listDigestsByUser, countDigestsByUser, createPack, getPack, getPackBySlug, listPacks, incrementPackInstall, deletePack, listSubscriptions, subscribe, unsubscribe, bulkSubscribe, isSubscribed, createFeedback, getUserFeedback, getAllFeedback, replyToFeedback, updateFeedbackStatus, markFeedbackRead, getUnreadFeedbackCount, addSubscriber, listSubscribers, countSubscribers, unsubscribeNewsletter, isStoplisted, upsertCandidate, listCandidates, setCandidateStatus, countCandidatesByStatus } from './db.mjs';
+import { loadCatalog, classifyBatch, extractEntitiesFromNote, catalogStatus } from './companies.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
@@ -405,6 +406,109 @@ const server = createServer(async (req, res) => {
   // ── Health check ──
   if (req.method === 'GET' && (path === '/api/health' || path === '/health')) {
     return json(res, { status: 'ok' });
+  }
+
+  // ── Candidate companies (admin) ──
+  // Pull from extracted KEY ENTITIES, classify against ve-stock catalog via embeddings.
+  if (req.method === 'GET' && path === '/api/candidates') {
+    if (!req.user) { attachUser(req); }
+    if (!req.user) return json(res, { error: 'not authenticated' }, 401);
+    const status = (params.get('status') || 'pending').toLowerCase();
+    return json(res, {
+      counts: countCandidatesByStatus(db),
+      catalog: catalogStatus(),
+      candidates: listCandidates(db, { status }),
+    });
+  }
+  if (req.method === 'PUT' && path.startsWith('/api/candidates/')) {
+    if (!req.user) { attachUser(req); }
+    if (!req.user) return json(res, { error: 'not authenticated' }, 401);
+    const id = parseInt(path.slice('/api/candidates/'.length), 10);
+    if (!id) return json(res, { error: 'invalid_id' }, 400);
+    const body = await parseBody(req);
+    const r = setCandidateStatus(db, id, body.status, body.notes);
+    if (!r.ok) return json(res, r, 400);
+    return json(res, { ok: true });
+  }
+  if (req.method === 'POST' && path === '/api/candidates/extract') {
+    if (!req.user) { attachUser(req); }
+    if (!req.user) return json(res, { error: 'not authenticated' }, 401);
+    const body = await parseBody(req).catch(() => ({}));
+    const lookbackDays = Math.min(parseInt(body.lookbackDays, 10) || 30, 365);
+    try {
+      await loadCatalog(); // warm if not loaded
+    } catch (e) {
+      return json(res, { error: 'catalog_unavailable', detail: e.message }, 502);
+    }
+    // Pull recent marks with KEY ENTITIES
+    const since = new Date(Date.now() - lookbackDays * 86400_000).toISOString().slice(0, 19).replace('T', ' ');
+    const marks = db.prepare(`SELECT id, note FROM marks WHERE created_at >= ? AND note LIKE '%KEY ENTITIES%'`).all(since);
+    const seen = new Set();
+    const candidates = [];
+    for (const m of marks) {
+      for (const ent of extractEntitiesFromNote(m.note)) {
+        const key = ent.toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        if (isStoplisted(db, ent)) continue;
+        candidates.push(ent);
+      }
+    }
+    if (!candidates.length) {
+      return json(res, { ok: true, scanned_marks: marks.length, extracted: 0, classifications: { known: 0, candidate: 0, not_a_company: 0 } });
+    }
+    // Batch-classify (one HTTP call)
+    let results;
+    try {
+      results = await classifyBatch(candidates);
+    } catch (e) {
+      return json(res, { error: 'classify_failed', detail: e.message }, 502);
+    }
+    const tally = { known: 0, candidate: 0, not_a_company: 0 };
+    let inserted = 0, incremented = 0;
+    for (const r of results) {
+      tally[r.verdict] = (tally[r.verdict] || 0) + 1;
+      if (r.verdict !== 'candidate') continue; // only queue middle-band entries
+      const u = upsertCandidate(db, {
+        name: r.name,
+        classifierVerdict: r.verdict,
+        bestKnownMatch: r.bestMatch,
+        bestKnownScore: r.score,
+      });
+      if (u && u.action === 'inserted') inserted++;
+      else if (u) incremented++;
+    }
+    return json(res, {
+      ok: true,
+      scanned_marks: marks.length,
+      extracted_unique: candidates.length,
+      classifications: tally,
+      queue_inserted: inserted,
+      queue_incremented: incremented,
+    });
+  }
+  if (req.method === 'GET' && path === '/api/candidates/export.json') {
+    if (!req.user) { attachUser(req); }
+    if (!req.user) return json(res, { error: 'not authenticated' }, 401);
+    const approved = listCandidates(db, { status: 'approved', limit: 1000 });
+    const payload = {
+      generatedAt: new Date().toISOString(),
+      count: approved.length,
+      candidates: approved.map(c => ({
+        name: c.name,
+        nearest_known: c.best_known_match,
+        nearest_score: c.best_known_score,
+        first_seen_at: c.first_seen_at,
+        source_count: c.source_count,
+        notes: c.notes,
+      })),
+    };
+    res.writeHead(200, {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Content-Disposition': `attachment; filename="chipmonk-approved-companies-${new Date().toISOString().slice(0,10)}.json"`,
+    });
+    res.end(JSON.stringify(payload, null, 2));
+    return;
   }
 
   // ── Catalog proxy — bypasses ve-stock's missing CORS header ──
@@ -809,4 +913,11 @@ Brief:`;
 
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 ClawFeed API running on http://0.0.0.0:${PORT}`);
+  // Warm the company-embedding catalog so the first /api/candidates/extract is fast.
+  // Failure here is non-fatal — classify() will retry on demand.
+  loadCatalog().then(c => {
+    console.log(`[catalog] loaded ${c.length} company embeddings via gateway`);
+  }).catch(e => {
+    console.warn(`[catalog] warm-up failed (will retry on demand):`, e.message);
+  });
 });
