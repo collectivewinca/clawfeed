@@ -125,12 +125,296 @@ select,input{font-family:inherit}
 </div>
 </footer>
 <script>
-var API="/api",isAdmin=!1,allMarks=[],allSources=[];
-document.getElementById("today-date").textContent=new Date().toLocaleDateString("en-US",{weekday:"long",year:"numeric",month:"long",day:"numeric"});
-function fmtDate(s){if(!s)return"";var d=new Date(s.replace(" ","T")+"Z");return isNaN(d)?s:d.toLocaleDateString("en-US",{year:"numeric",month:"short",day:"numeric"})}
-function fmrRelative(s){if(!s)return"";var d=new Date(s.replace(" ","T")+"Z"),ms=Date.now()-d.getTime(),min=Math.floor(ms/6e4);return min<60?min+"m ago":min<1440?Math.floor(min/60)+"h ago":Math.floor(min/1440)+"d ago"}
-function escapeHtml(s){return String(s||"").replace(/[&<>"]/g,function(c){return({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"})[c]||c})}
-function statusPill(s){var c={approved:"pill-approved",pending:"pill-pending",rejected:"pill-rejected"}[s]||"pill-source";return'<span class="pill '+c+'">'+escapeHtml(s)+"</span>"}
-function todayStr(){var d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
-function formatEta(h,m){var n=new Date(),t=new Date(n);t.setUTCHours(h,m,0,0);if(t<=n)t.setUTCDate(t.getUTCDate()+1);var d=t-n,hr=Math.floor(d/36e5),mi=Math.floor(d%36e5/6e4);return hr>0?hr+"h "+mi+"m":mi+"m"}
-async function loadPipelineSignal(){try{var r=await Promise.all([fetch(API+"/marks?limit=500").then(function(r){return r.json()}),fetch(API+"/digests?type=daily&limit=10").then(function(r){return r.json()})]),ms=r[0],bs=r[1];allMarks=Array.isArray(ms)?ms:[];var td=todayStr(),tm=allMarks.filter(function(m){return m.created_at&&m.created_at.startsWith(td)}),ta=tm.filter(function(m){return m.status==="approved"}),lb=Array.isArray(bs)&&bs.length>0?bs[0]:null,pd=document.getElementById("pulse-indicator");if(ta.length>0)pd.innerHTML='<span class="signal-dot up"></span> <span>'+ta.length+" approved today</span>";else if(tm.length>0)pd.innerHTML='<span class="signal-dot quiet"></span> <span>'+tm.length+" ingested today</span>";else pd.innerHTML='<span class="signal-dot quiet"></span> <span>No new activity today</span>';if(lb){document.getElementById("signal-brief-dot").className="signal-dot up";document.getElementById("signal-brief-title").textContent=fmtDate(lb.created_at);document.getElementById("signal-brief-time").textContent=fmtRelative(lb.created_at)+" \xb7 "+(lb.title||"Daily Brief")}else{document.getElementById("signal-brief-dot").className="signal-dot quiet";document.getElementById("signal-brief-title").textContent="No Brief yet";document.getElementById("signal-brief-time").textContent="Next one due soon"}var sa=allMarks.filter(function(m){return m.status==="approved"&&m.relevance_score!=null});sa.sort(function(a,b){return b.relevance_score-a.relevance_score});var tp=sa[0];if(tp){var tl=tp.title||"(untitled)";document.getElementById("signal-top-headline").textContent=tl.length>55?tl.slice(0,52)+"...":tl;document.getElementById("signal-top-source").textContent=tp.source_name||"unknown";document.getElementById("signal-top-score").textContent=Number(tp.relevance_score).toFixed(3)}var sc={};for(var i=0;i<tm.length;i++){var ss=tm[i].source_name;if(ss)sc[ss]=(sc[ss]||0)+1}var sr=Object.entries(sc).sort(function(a,b){return b[1]-a[1]});if(sr.length>0){document.getElementById("signal-source-name").textContent=sr[0][0].replace(/_/g," ");document.getElementById("signal-source-count").textContent=sr[0][1]+" articles today"}else{var ac={};for(var i=0;i<allMarks.length;i++){var ss=allMarks[i].source_name;if(ss)ac[ss]=(ac[ss]||0)+1}var ta2=Object.entries(ac).sort(function(a,b){return b[1]-a[1]})[0];if(ta2){document.getElementById("signal-source-name").textContent=ta2[0].replace(/_/g," ");document.getElementById("signal-source-count").textContent=ta2[1]+" articles overall"}}document.getElementById("signal-next-eta").textContent=formatEta(14,35);document.getElementById("signal-next-label").textContent="Daily Brief \xb7 14:35 UTC";var sn=Array.from(new Set(allMarks.map(function(m){return m.source_name}).filter(Boolean))).sort();allSources=sn;var se=document.getElementById("filter-source");se.innerHTML="<option value=\"\">All sources</option>"+sn.map(function(s){return'<option value="'+escapeHtml(s)+'">'+escapeHtml(s)+"</option>"}).join("")}catch(e){console.error("pipeline signal load failed",e)}}
+const API = "/api";
+let isAdmin = false;
+let allMarks = [];
+
+document.getElementById("today-date").textContent =
+    new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+
+// ── Helpers ──────────────────────────────────────────────────────────
+function fmtDate(s) {
+    if (!s) return "";
+    const d = new Date(s.replace(" ", "T") + "Z");
+    return isNaN(d) ? s : d.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+}
+function fmtRelative(s) {
+    if (!s) return "";
+    const d = new Date(s.replace(" ", "T") + "Z");
+    const min = Math.floor((Date.now() - d.getTime()) / 60000);
+    if (min < 60) return min + "m ago";
+    if (min < 1440) return Math.floor(min / 60) + "h ago";
+    return Math.floor(min / 1440) + "d ago";
+}
+function escapeHtml(s) {
+    return String(s || "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c] || c);
+}
+function statusPill(s) {
+    const c = { approved: "pill-approved", pending: "pill-pending", rejected: "pill-rejected" }[s] || "pill-source";
+    return '<span class="pill ' + c + '">' + escapeHtml(s) + "</span>";
+}
+function todayStr() {
+    const d = new Date();
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+}
+function formatEta(h, m) {
+    const n = new Date();
+    const t = new Date(n);
+    t.setUTCHours(h, m, 0, 0);
+    if (t <= n) t.setUTCDate(t.getUTCDate() + 1);
+    const d = t - n;
+    const hr = Math.floor(d / 36e5);
+    const mi = Math.floor((d % 36e5) / 6e4);
+    return hr > 0 ? hr + "h " + mi + "m" : mi + "m";
+}
+
+// Tiny markdown → HTML for digest/mark notes (paragraphs, bold, h1-3, lists)
+function renderMarkdown(md) {
+    if (!md) return "";
+    const inline = s => escapeHtml(s)
+        .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+        .replace(/\*([^*]+)\*/g, "<em>$1</em>");
+    let html = "";
+    let inList = false;
+    for (const raw of md.split("\n")) {
+        const line = raw.trim();
+        if (!line) { if (inList) { html += "</ul>"; inList = false; } continue; }
+        if (/^---+$/.test(line)) { if (inList) { html += "</ul>"; inList = false; } html += "<hr>"; continue; }
+        let m;
+        if (m = line.match(/^###\s+(.+)$/)) { if (inList) { html += "</ul>"; inList = false; } html += "<h3>" + inline(m[1]) + "</h3>"; continue; }
+        if (m = line.match(/^##\s+(.+)$/))  { if (inList) { html += "</ul>"; inList = false; } html += "<h2>" + inline(m[1]) + "</h2>"; continue; }
+        if (m = line.match(/^#\s+(.+)$/))   { if (inList) { html += "</ul>"; inList = false; } html += "<h1>" + inline(m[1]) + "</h1>"; continue; }
+        if (m = line.match(/^[-*]\s+(.+)$/)) { if (!inList) { html += "<ul>"; inList = true; } html += "<li>" + inline(m[1]) + "</li>"; continue; }
+        if (inList) { html += "</ul>"; inList = false; }
+        html += "<p>" + inline(line) + "</p>";
+    }
+    if (inList) html += "</ul>";
+    return html;
+}
+
+// ── Auth ─────────────────────────────────────────────────────────────
+async function checkAdmin() {
+    try {
+        const r = await fetch(API + "/auth/me", { credentials: "same-origin" });
+        if (r.ok) {
+            const d = await r.json();
+            isAdmin = !!d.user;
+        }
+    } catch {}
+    const ind = document.getElementById("admin-indicator");
+    if (isAdmin) ind.innerHTML = '<span class="signal-dot up"></span> Admin';
+    else ind.innerHTML = '<span class="signal-dot quiet"></span> Read-only';
+}
+
+// ── Pipeline signal (4 cards on top) ────────────────────────────────
+async function loadPipelineSignal() {
+    try {
+        const [ms, bs] = await Promise.all([
+            fetch(API + "/marks?limit=500").then(r => r.json()),
+            fetch(API + "/digests?type=daily&limit=10").then(r => r.json()),
+        ]);
+        allMarks = Array.isArray(ms) ? ms : [];
+        const td = todayStr();
+        const tm = allMarks.filter(m => m.created_at && m.created_at.startsWith(td));
+        const ta = tm.filter(m => m.status === "approved");
+        const lb = Array.isArray(bs) && bs.length > 0 ? bs[0] : null;
+        const pd = document.getElementById("pulse-indicator");
+        if (ta.length > 0) pd.innerHTML = '<span class="signal-dot up"></span> <span>' + ta.length + " approved today</span>";
+        else if (tm.length > 0) pd.innerHTML = '<span class="signal-dot quiet"></span> <span>' + tm.length + " ingested today</span>";
+        else pd.innerHTML = '<span class="signal-dot quiet"></span> <span>No new activity today</span>';
+
+        if (lb) {
+            document.getElementById("signal-brief-dot").className = "signal-dot up";
+            document.getElementById("signal-brief-title").textContent = fmtDate(lb.created_at);
+            document.getElementById("signal-brief-time").textContent = fmtRelative(lb.created_at) + " · Daily Brief";
+        } else {
+            document.getElementById("signal-brief-dot").className = "signal-dot quiet";
+            document.getElementById("signal-brief-title").textContent = "No Brief yet";
+            document.getElementById("signal-brief-time").textContent = "Next one due soon";
+        }
+
+        const sa = allMarks.filter(m => m.status === "approved" && m.relevance_score != null);
+        sa.sort((a, b) => b.relevance_score - a.relevance_score);
+        const tp = sa[0];
+        if (tp) {
+            const tl = tp.title || "(untitled)";
+            document.getElementById("signal-top-headline").textContent = tl.length > 55 ? tl.slice(0, 52) + "…" : tl;
+            document.getElementById("signal-top-source").textContent = (tp.source_name || "unknown").replace(/_/g, " ");
+            document.getElementById("signal-top-score").textContent = Number(tp.relevance_score).toFixed(3);
+        }
+
+        // Most active source: today preferred, fall back to all-time
+        const tally = m => m.reduce((a, x) => { if (x.source_name) a[x.source_name] = (a[x.source_name] || 0) + 1; return a; }, {});
+        const top = (obj, label) => {
+            const e = Object.entries(obj).sort((a, b) => b[1] - a[1])[0];
+            if (!e) return null;
+            return { name: e[0].replace(/_/g, " "), count: e[1] + " articles " + label };
+        };
+        const t = top(tally(tm), "today") || top(tally(allMarks), "overall");
+        if (t) {
+            document.getElementById("signal-source-name").textContent = t.name;
+            document.getElementById("signal-source-count").textContent = t.count;
+        }
+
+        document.getElementById("signal-next-eta").textContent = formatEta(14, 35);
+        document.getElementById("signal-next-label").textContent = "Daily Brief · 14:35 UTC";
+
+        // Populate source filter dropdown
+        const sources = Array.from(new Set(allMarks.map(m => m.source_name).filter(Boolean))).sort();
+        const fs = document.getElementById("filter-source");
+        fs.innerHTML = '<option value="">All sources</option>' + sources.map(s => '<option value="' + escapeHtml(s) + '">' + escapeHtml(s.replace(/_/g, " ")) + '</option>').join("");
+    } catch (e) {
+        console.error("pipeline signal load failed", e);
+    }
+}
+
+// ── Briefs tab ───────────────────────────────────────────────────────
+async function loadBriefs() {
+    const root = document.getElementById("briefs-list");
+    try {
+        const list = await (await fetch(API + "/digests?limit=20")).json();
+        if (!Array.isArray(list) || !list.length) { root.innerHTML = '<div class="text-gray-500 italic">No briefs published yet.</div>'; return; }
+        root.innerHTML = list.map(d => {
+            const dt = fmtDate(d.created_at);
+            const rel = fmtRelative(d.created_at);
+            const typeLabel = (d.type || "brief").toUpperCase();
+            const excerpt = String(d.content || "").replace(/[#*]/g, "").trim().slice(0, 220);
+            return '<article class="editorial-card p-6 mb-4">'
+                + '<div class="flex flex-wrap items-center gap-3 mb-3">'
+                + '<span class="pill pill-source">' + typeLabel + '</span>'
+                + '<span class="text-[10px] font-mono text-gray-400">' + dt + ' · ' + rel + '</span>'
+                + '</div>'
+                + '<div class="summary-block">' + renderMarkdown(d.content || "") + '</div>'
+                + '</article>';
+        }).join("");
+    } catch (e) {
+        root.innerHTML = '<div class="text-red-700 italic">Failed to load briefs.</div>';
+    }
+}
+
+// ── Marks tab (filterable) ───────────────────────────────────────────
+async function loadMarks() {
+    const root = document.getElementById("marks-list");
+    root.innerHTML = '<div class="text-gray-400 font-mono text-sm">Loading marks…</div>';
+    const status = document.getElementById("filter-status").value;
+    const source = document.getElementById("filter-source").value;
+    const sort = document.getElementById("filter-sort").value;
+    const minScore = parseFloat(document.getElementById("filter-min-score").value) || 0;
+    try {
+        const params = new URLSearchParams({ limit: "200" });
+        if (status) params.set("status", status);
+        const list = await (await fetch(API + "/marks?" + params.toString(), { credentials: "same-origin" })).json();
+        if (!Array.isArray(list)) { root.innerHTML = '<div class="text-gray-500 italic">' + (list && list.error ? escapeHtml(list.error) : "Unable to load marks.") + '</div>'; return; }
+        let filtered = list;
+        if (source) filtered = filtered.filter(m => m.source_name === source);
+        if (minScore > 0) filtered = filtered.filter(m => (m.relevance_score || 0) >= minScore);
+        if (sort === "score") filtered.sort((a, b) => (b.relevance_score || 0) - (a.relevance_score || 0));
+        else filtered.sort((a, b) => new Date((b.created_at || "").replace(" ", "T")) - new Date((a.created_at || "").replace(" ", "T")));
+        if (!filtered.length) { root.innerHTML = '<div class="text-gray-500 italic">No marks match these filters.</div>'; return; }
+        root.innerHTML = filtered.map(renderMarkRow).join("");
+    } catch (e) {
+        root.innerHTML = '<div class="text-red-700 italic">Failed to load marks.</div>';
+    }
+}
+
+function renderMarkRow(m) {
+    const dt = fmtDate(m.created_at);
+    const rel = fmtRelative(m.created_at);
+    const score = m.relevance_score != null ? Math.round(m.relevance_score * 100) + "%" : "—";
+    const src = (m.source_name || "research").replace(/_/g, " ");
+    const url = m.url && /^https?:\/\//.test(m.url) ? m.url : "";
+    const actions = isAdmin ? (
+        '<div class="flex gap-2 mt-3">'
+        + (m.status !== "approved" ? '<button class="btn btn-approve" onclick="setStatus(' + m.id + ',\'approved\')">Approve</button>' : '')
+        + (m.status !== "rejected" ? '<button class="btn btn-reject" onclick="setStatus(' + m.id + ',\'rejected\')">Reject</button>' : '')
+        + (m.status !== "pending"  ? '<button class="btn" onclick="setStatus(' + m.id + ',\'pending\')">Re-queue</button>' : '')
+        + '</div>'
+    ) : '';
+    return '<article class="editorial-card p-5 mb-3" id="mark-' + m.id + '">'
+        + '<div class="flex flex-wrap items-center gap-2 mb-2">'
+        + statusPill(m.status || "pending")
+        + '<span class="pill pill-source">' + escapeHtml(src) + '</span>'
+        + '<span class="text-[10px] font-mono text-gray-400">' + dt + ' · ' + rel + ' · score ' + score + '</span>'
+        + '</div>'
+        + '<h3 class="font-serif text-lg font-semibold leading-snug mb-2">' + escapeHtml(m.title || "(untitled)") + '</h3>'
+        + (url ? '<a href="' + escapeHtml(url) + '" target="_blank" rel="noopener" class="text-xs font-mono text-blue-700 break-all">' + escapeHtml(url) + '</a>' : '')
+        + actions
+        + '</article>';
+}
+
+// ── Review tab (pending queue) ──────────────────────────────────────
+async function loadReview() {
+    const root = document.getElementById("review-content");
+    if (!isAdmin) {
+        // Non-admin preview: counts + invitation, no actions
+        const pendCount = allMarks.filter(m => m.status === "pending").length;
+        const apprCount = allMarks.filter(m => m.status === "approved").length;
+        const rejCount  = allMarks.filter(m => m.status === "rejected").length;
+        root.innerHTML = '<div class="editorial-card p-8">'
+            + '<div class="text-[10px] font-mono uppercase tracking-widest text-gray-500 mb-2">Editorial Queue</div>'
+            + '<h2 class="font-serif text-2xl font-bold mb-4">' + pendCount + ' pending · ' + apprCount + ' approved · ' + rejCount + ' rejected</h2>'
+            + '<p class="text-gray-500 leading-relaxed mb-6 max-w-2xl">The review queue is the curation step between ingestion and publication. Editors approve, reject, or rewrite each story before it appears on the public feed. Sign in as admin to make changes.</p>'
+            + '<a href="/admin/login" class="btn btn-primary">Admin sign-in →</a>'
+            + '</div>';
+        return;
+    }
+    try {
+        const list = await (await fetch(API + "/marks?status=pending&limit=100", { credentials: "same-origin" })).json();
+        if (!Array.isArray(list) || !list.length) {
+            root.innerHTML = '<div class="editorial-card p-8 text-gray-500"><p class="font-serif text-lg">Inbox zero.</p><p class="text-sm mt-2">No marks waiting for review.</p></div>';
+            return;
+        }
+        list.sort((a, b) => (b.relevance_score || 0) - (a.relevance_score || 0));
+        root.innerHTML = '<div class="text-[10px] font-mono uppercase tracking-widest text-gray-500 mb-3">' + list.length + ' pending · sorted by relevance</div>'
+            + list.map(renderMarkRow).join("");
+    } catch {
+        root.innerHTML = '<div class="text-red-700 italic">Failed to load review queue.</div>';
+    }
+}
+
+// ── Mark status mutation ────────────────────────────────────────────
+async function setStatus(id, status) {
+    if (!isAdmin) return;
+    try {
+        const r = await fetch(API + "/marks/" + id + "/status", {
+            method: "PUT", credentials: "same-origin",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status }),
+        });
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        // Refresh whichever tab the action was triggered in
+        const active = document.querySelector(".tab-btn.active")?.dataset.tab;
+        if (active === "marks") loadMarks();
+        else if (active === "review") loadReview();
+        loadPipelineSignal();
+    } catch (e) {
+        alert("Status update failed: " + e.message);
+    }
+}
+
+// ── Tab switching ────────────────────────────────────────────────────
+function setupTabs() {
+    document.querySelectorAll(".tab-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+            document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+            btn.classList.add("active");
+            const tab = btn.dataset.tab;
+            document.querySelectorAll(".panel").forEach(p => p.classList.add("hidden"));
+            document.getElementById("panel-" + tab).classList.remove("hidden");
+            if (tab === "marks") loadMarks();
+            else if (tab === "review") loadReview();
+            else if (tab === "briefs") loadBriefs();
+        });
+    });
+}
+
+// ── Bootstrap ────────────────────────────────────────────────────────
+(async () => {
+    await checkAdmin();
+    setupTabs();
+    await loadPipelineSignal();
+    loadBriefs(); // initial active tab
+})();
+</script>
+</body>
+</html>
