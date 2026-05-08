@@ -308,16 +308,18 @@ async function loadTrackers() {
 }
 
 async function loadSources() {
+    const el = document.getElementById('sources-list');
     try {
-        const list = await (await fetch('/api/marks/sources', { credentials: 'same-origin' })).json();
-        const el = document.getElementById('sources-list');
-        if (!Array.isArray(list) || !list.length) { el.innerHTML = '<div class="text-gray-400 italic">Sign in to view.</div>'; return; }
+        const r = await fetch('/api/marks/sources', { credentials: 'same-origin' });
+        if (r.status === 401) { el.innerHTML = '<div class="text-gray-400 italic">Source breakdown is admin-only.</div>'; return; }
+        const list = await r.json();
+        if (!Array.isArray(list) || !list.length) { el.innerHTML = '<div class="text-gray-400 italic">No source activity yet.</div>'; return; }
         el.innerHTML = list.slice(0, 8).map(s => `
             <div class="flex justify-between border-b border-gray-100 last:border-b-0 py-1">
                 <span class="text-gray-700">${s.source_name.replace(/_/g, ' ')}</span>
                 <span class="font-mono text-gray-500">${s.n}</span>
             </div>`).join('');
-    } catch {}
+    } catch { el.innerHTML = '<div class="text-gray-400 italic">Source list unavailable.</div>'; }
 }
 
 async function loadAcceleratorShare() {

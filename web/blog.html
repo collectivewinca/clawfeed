@@ -144,12 +144,14 @@ function renderMarkdown(md) {
 }
 
 async function loadLatestBrief() {
+    const root = document.getElementById('latest-brief');
+    const empty = `<div class="editorial-card p-8 md:p-10 text-gray-500"><p class="font-serif text-lg leading-snug">Today's brief is being prepared.</p><p class="text-sm mt-2">A new edition lands daily at 14:35 UTC.</p></div>`;
     try {
         const list = await (await fetch('/api/digests?type=daily&limit=1')).json();
-        if (!list.length) return;
+        if (!list.length) { root.innerHTML = empty; return; }
         const d = list[0];
         const dt = new Date(d.created_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-        document.getElementById('latest-brief').innerHTML = `
+        root.innerHTML = `
             <article class="editorial-card p-8 md:p-10" style="border-color: var(--ink);">
                 <div class="flex items-center gap-3 mb-5">
                     <span class="text-[10px] font-mono uppercase tracking-widest text-white bg-editorial-charcoal px-2 py-0.5">Daily Brief</span>
@@ -157,7 +159,7 @@ async function loadLatestBrief() {
                 </div>
                 <div class="summary-block">${renderMarkdown(d.content)}</div>
             </article>`;
-    } catch {}
+    } catch { root.innerHTML = empty; }
 }
 
 let TRACKERS = [];
@@ -179,11 +181,13 @@ function trackerPill(t) {
 }
 
 async function loadTrackers() {
+    const root = document.getElementById('trackers');
+    const empty = `<div class="editorial-card p-6 text-sm text-gray-500"><p>No active entity rollups yet.</p><p class="mt-1">Trackers appear here once enough stories accumulate around an entity (Intel, NVIDIA, Samsung, Micron, TSMC).</p></div>`;
     try {
         TRACKERS = await (await fetch('/api/trackers')).json();
         const list = TRACKERS.filter(t => t.summary);
-        if (!list.length) return;
-        document.getElementById('trackers').innerHTML = `
+        if (!list.length) { root.innerHTML = empty; return; }
+        root.innerHTML = `
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 ${list.map(t => `
                     <a href="/tracker/${t.slug}" class="editorial-card p-5 block" style="text-decoration:none;color:inherit;">
@@ -193,7 +197,7 @@ async function loadTrackers() {
                     </a>
                 `).join('')}
             </div>`;
-    } catch {}
+    } catch { root.innerHTML = empty; }
 }
 
 function renderInsights() {
