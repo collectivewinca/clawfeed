@@ -3,213 +3,1387 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Sliver</title>
+<title>The MINY Feed</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>☀️</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;0,9..144,900;1,9..144,400;1,9..144,500;1,9..144,600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500&family=JetBrains+Mono:wght@400;500&display=swap">
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  html, body { overflow-x: hidden; }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f0f0f; color: #e0e0e0; word-break: break-word; transition: background .3s, color .3s; }
-  body.light { background: #f5f5f5; color: #1a1a1a; }
-  body.light .subtitle { color: #888; }
-  body.light .tab { background: #e8e8e8; border-color: #ccc; color: #666; }
-  body.light .tab:hover { border-color: #999; color: #333; }
-  body.light .tab.active { background: #ddd; border-color: #999; color: #111; }
-  body.light .digest-card { background: #fff; border-color: #ddd; }
-  body.light .digest-card:hover { background: #fafafa; border-color: #bbb; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); }
-  body.light .digest-card .excerpt { color: #888; }
-  body.light .digest-card .time-badge { background: #f0f0f0; border-color: #ddd; color: #666; }
-  body.light .date-group-header { color: #888; border-color: #e0e0e0; }
-  body.light .date-group-header .count { color: #aaa; }
-  body.light .digest-viewer { background: #fff; border-color: #ddd; color: #333; }
-  body.light .back-btn { background: #e8e8e8; border-color: #ccc; color: #666; }
-  body.light .back-btn:hover { color: #111; border-color: #999; }
-  body.light .login-banner { background: #fff; border-color: #ddd; color: #666; }
-  body.light .mark-card { background: #fff; border-color: #ddd; }
-  body.light .mark-card:hover { background: #fafafa; border-color: #bbb; }
-  body.light .source-card { background: #fff; border-color: #ddd; }
-  body.light .source-card:hover { background: #fafafa; border-color: #bbb; }
-  body.light .source-form { background: #fff; border-color: #ddd; }
-  body.light .source-form input, body.light .source-form select, body.light .source-form textarea { background: #f5f5f5; border-color: #ccc; color: #333; }
-  body.light .auth-btn { background: #e8e8e8; border-color: #ccc; color: #555; }
-  body.light .auth-btn:hover { border-color: #999; color: #111; }
-  body.light .mark-stat { background: #fff; border-color: #ddd; }
-  body.light .toast { background: #333; }
-  body.light .changelog-overlay { background: rgba(255,255,255,0.92); }
-  body.light .changelog-inner { color: #333; }
-  body.light .changelog-inner h1 { color: #111; }
-  body.light .changelog-inner h2 { color: #0066cc; border-color: #ddd; }
-  body.light .changelog-inner h3 { color: #444; }
-  body.light .changelog-inner li { color: #555; }
-  body.light .changelog-inner code { background: #e8f0fe; color: #0066cc; }
-  body.light .user-dropdown { background: #fff; border-color: #ddd; box-shadow: 0 4px 12px rgba(0,0,0,.1); }
-  body.light .user-dropdown a { color: #555; }
-  body.light .user-dropdown a:hover { background: #f0f0f0; color: #111; }
-  body.light .pack-card { background: #fff; border-color: #ddd; }
-  body.light .empty { color: #999; }
-.theme-toggle { background: none; border: 1px solid #333; border-radius: 6px; cursor: pointer; font-size: 16px; padding: 4px 8px; line-height: 1; transition: all .3s ease, color .3s ease, border-color .3s ease; color: #888; }
-.theme-toggle:hover { border-color: #555; color: #ccc; transform: scale(1.05); }
-body.light .theme-toggle { border-color: #ccc; color: #666; transition: all .3s ease, color .3s ease, border-color .3s ease; }
-body.light .theme-toggle:hover { border-color: #999; color: #333; }
-  .container { max-width: 900px; margin: 0 auto; padding: 20px; }
-  h1 { font-size: 1.8em; margin-bottom: 8px; }
-  @media (max-width: 480px) { h1 { font-size: 1.3em; } }
-  .subtitle { color: #999; margin-bottom: 24px; font-size: 0.95em; letter-spacing: 0.5px; }
-  .subtitle .agent-name { font-weight: 600; padding: 2px 8px; border-radius: 4px; text-decoration: none; transition: opacity 0.2s; }
-  .subtitle .agent-name:hover { opacity: 0.85; }
-  .subtitle .agent-name.sliver { background: linear-gradient(135deg, #3498db, #2980b9); color: #fff; }
-  body.light .subtitle .agent-name.sliver { background: linear-gradient(135deg, #3b82f6, #2563eb); }
-  .tabs { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
-  .tab { padding: 8px 16px; border-radius: 8px; background: #1a1a1a; border: 1px solid #333; cursor: pointer; color: #aaa; font-size: 14px; transition: all 0.2s; }
-  .tab:hover { border-color: #555; color: #fff; }
-  .tab.active { background: #2a2a2a; border-color: #666; color: #fff; }
-  .digest-list { display: flex; flex-direction: column; gap: 16px; }
-  .date-group { margin-bottom: 4px; }
-  .date-group-header { font-size: 13px; color: #666; font-weight: 600; letter-spacing: 0.5px; padding: 8px 0 6px; border-bottom: 1px solid #1e1e1e; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
-  .date-group-header .count { font-size: 11px; color: #444; font-weight: 400; }
-  .date-group-items { display: flex; flex-direction: column; gap: 8px; }
-.digest-card { background: #1a1a1a; border: 1px solid #282828; border-radius: 12px; padding: 14px 18px; cursor: pointer; transition: all 0.2s ease; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
-.digest-card:hover { border-color: #444; background: #1e1e1e; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3); }
-  .digest-card .card-body { flex: 1; min-width: 0; }
-  .digest-card .title { font-size: 14px; font-weight: 500; }
-  .digest-card .excerpt { font-size: 12px; color: #666; margin-top: 4px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.5; }
-  .digest-card .time-badge { font-size: 12px; color: #666; background: #141414; padding: 3px 10px; border-radius: 6px; border: 1px solid #222; white-space: nowrap; }
-  .digest-viewer { display: none; background: #1a1a1a; border: 1px solid #282828; border-radius: 12px; padding: 24px; margin-top: 16px; line-height: 1.7; white-space: pre-wrap; word-break: break-word; overflow-wrap: break-word; font-size: 14px; max-height: 80vh; overflow-y: auto; overflow-x: hidden; }
-  .digest-viewer a { color: #58a6ff; text-decoration: none; }
-  .digest-viewer a:hover { text-decoration: underline; }
-  .back-btn { display: inline-block; margin-bottom: 16px; padding: 6px 14px; background: #2a2a2a; border: 1px solid #444; border-radius: 6px; color: #aaa; cursor: pointer; font-size: 13px; }
-  .back-btn:hover { color: #fff; border-color: #666; }
-  .empty { color: #555; text-align: center; padding: 40px; font-size: 14px; }
-  .loading { color: #555; text-align: center; padding: 20px; }
-.loading-skeleton { display: flex; flex-direction: column; gap: 16px; }
-.skeleton-card { background: #1a1a1a; border: 1px solid #282828; border-radius: 12px; padding: 14px 18px; animation: pulse 1.5s ease-in-out infinite; }
-.skeleton-card-light { background: #f0f0f0; animation: pulse-light 1.5s ease-in-out infinite; }
-.skeleton-line { height: 14px; background: #2a2a2a; border-radius: 4px; margin-bottom: 8px; }
+/* ────────────────────────────────────────────────────────────────────
+   THE MINY FEED — editorial reskin
+   Direction: NYT broadsheet, light-first, hairline-driven
+   Fonts: Fraunces (display) · Newsreader (body) · JetBrains Mono (meta)
+   ──────────────────────────────────────────────────────────────────── */
+
+:root {
+  --paper: #faf7f2;
+  --paper-elev: #fffdf7;
+  --ink: #14110d;
+  --ink-soft: #3a342c;
+  --ink-mute: #6b6359;
+  --ink-faint: #9a9082;
+  --hairline: #d8d2c6;
+  --hairline-soft: #efebe1;
+  --accent: #b8050f;
+  --accent-mute: #8b1a1f;
+  --accent-tint: #f5e2e3;
+
+  --font-display: 'Fraunces', 'Iowan Old Style', Georgia, 'Times New Roman', serif;
+  --font-body: 'Newsreader', 'Iowan Old Style', Georgia, serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  --measure: 720px;
+}
+
+body.dark {
+  --paper: #131210;
+  --paper-elev: #1b1814;
+  --ink: #f1ebde;
+  --ink-soft: #d6cebd;
+  --ink-mute: #998f80;
+  --ink-faint: #5d564b;
+  --hairline: #2a261f;
+  --hairline-soft: #1e1b16;
+  --accent: #ff5d6c;
+  --accent-mute: #d04050;
+  --accent-tint: #2a1416;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { overflow-x: hidden; }
+html { background: var(--paper); }
+
+body {
+  font-family: var(--font-body);
+  font-size: 17px;
+  line-height: 1.55;
+  background: var(--paper);
+  color: var(--ink);
+  word-break: break-word;
+  font-feature-settings: "kern", "liga", "onum";
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background .25s ease, color .25s ease;
+}
+
+::selection { background: var(--accent); color: var(--paper); }
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: border-color .15s, color .15s;
+}
+a:hover { border-bottom-color: currentColor; }
+
+/* ── Container ─────────────────────────────────────────────────── */
+.container {
+  max-width: var(--measure);
+  margin: 0 auto;
+  padding: 28px 28px 80px;
+}
+@media (max-width: 560px) {
+  .container { padding: 18px 18px 60px; }
+  body { font-size: 16px; }
+}
+
+/* ── Masthead ──────────────────────────────────────────────────── */
+.masthead {
+  border-top: 1px solid var(--ink);
+  border-bottom: 3px solid var(--ink);
+  padding: 14px 0 22px;
+  text-align: center;
+  position: relative;
+}
+
+.masthead-row.top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+  margin-bottom: 16px;
+  padding: 0 2px;
+}
+
+.masthead-edition {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-feature-settings: "tnum";
+}
+
+.wire-pip {
+  display: inline-block;
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--accent);
+  animation: wire-pulse 2.4s ease-in-out infinite;
+}
+@keyframes wire-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.3; transform: scale(0.75); }
+}
+
+.masthead-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.masthead-title {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: clamp(2.6rem, 7.5vw, 4.4rem);
+  letter-spacing: -0.028em;
+  line-height: 0.95;
+  color: var(--ink);
+  cursor: pointer;
+  display: inline-block;
+  padding: 4px 6px 6px;
+  font-variation-settings: "opsz" 144, "SOFT" 0;
+  font-feature-settings: "kern", "liga", "dlig";
+  transition: color .2s;
+}
+.masthead-title:hover { color: var(--accent); }
+
+.dateline {
+  font-family: var(--font-body);
+  font-style: italic;
+  font-size: 13.5px;
+  color: var(--ink-mute);
+  margin-top: 14px;
+  letter-spacing: 0.01em;
+}
+.dateline .agent-name {
+  font-style: normal;
+  font-weight: 600;
+  color: var(--ink);
+  border-bottom: 1px solid var(--ink-faint);
+  padding: 0 2px;
+  background: none !important;
+}
+.dateline .agent-name:hover { color: var(--accent); border-color: var(--accent); }
+.dateline .agent-name.sliver { background: none !important; }
+
+/* Theme toggle */
+.theme-toggle {
+  background: none;
+  border: 1px solid var(--hairline);
+  border-radius: 0;
+  cursor: pointer;
+  font-size: 13px;
+  padding: 3px 7px;
+  line-height: 1;
+  color: var(--ink-mute);
+  transition: color .15s, border-color .15s;
+}
+.theme-toggle:hover { color: var(--ink); border-color: var(--ink); }
+
+/* Auth bar */
+.auth-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.auth-tools {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-left: 8px;
+  border-left: 1px solid var(--hairline);
+  margin-left: 2px;
+}
+.auth-bar img { width: 22px; height: 22px; border-radius: 50%; }
+.auth-bar .user-name {
+  font-family: var(--font-body);
+  font-style: italic;
+  font-size: 12px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink-mute);
+}
+
+.user-menu {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+.user-dropdown {
+  display: none;
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 6px;
+  background: var(--paper-elev);
+  border: 1px solid var(--hairline);
+  border-radius: 0;
+  padding: 4px 0;
+  min-width: 170px;
+  z-index: 100;
+  box-shadow: 0 8px 28px rgba(20,17,13,0.08);
+  text-transform: none;
+  letter-spacing: 0;
+  font-family: var(--font-body);
+}
+.user-dropdown.show { display: block; }
+.user-dropdown a {
+  display: block;
+  padding: 8px 14px;
+  color: var(--ink-soft);
+  font-size: 13px;
+  border-bottom: none;
+}
+.user-dropdown a:hover { background: var(--hairline-soft); color: var(--ink); }
+
+.auth-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  border: 1px solid var(--ink);
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background .12s, color .12s;
+}
+.auth-btn:hover { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.auth-btn .g-logo { width: 12px; height: 12px; }
+
+/* ── Info banner ───────────────────────────────────────────────── */
+.info-banner {
+  font-family: var(--font-body);
+  font-style: italic;
+  color: var(--accent-mute) !important;
+  font-size: 13px !important;
+  margin: 14px 0 0;
+  padding: 0;
+}
+
+/* ── Login banner ──────────────────────────────────────────────── */
+.login-banner {
+  background: var(--accent-tint);
+  border: 0;
+  border-top: 1px solid var(--accent);
+  border-bottom: 1px solid var(--accent);
+  border-radius: 0;
+  padding: 10px 16px;
+  margin: 22px 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-family: var(--font-body);
+  font-style: italic;
+  font-size: 13.5px;
+  color: var(--ink-soft);
+}
+.login-banner a {
+  color: var(--accent);
+  font-style: normal;
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  font-family: var(--font-mono);
+  border-bottom: 1px solid var(--accent);
+}
+.login-banner .dismiss {
+  cursor: pointer;
+  color: var(--ink-mute);
+  font-size: 16px;
+  padding: 0 4px;
+  line-height: 1;
+}
+.login-banner .dismiss:hover { color: var(--ink); }
+
+/* ── Section navigation ───────────────────────────────────────── */
+.tabs, .tabs.section-nav {
+  display: flex;
+  gap: 0;
+  margin: 24px 0 30px;
+  padding: 0;
+  border-bottom: 1px solid var(--hairline);
+  flex-wrap: wrap;
+}
+
+.tab {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 12.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+  background: transparent !important;
+  border: 0 !important;
+  border-bottom: 2.5px solid transparent !important;
+  border-radius: 0 !important;
+  padding: 10px 20px 12px !important;
+  margin-bottom: -1px;
+  cursor: pointer;
+  transition: color .15s, border-color .15s;
+  font-feature-settings: "smcp";
+}
+.tab:first-child { padding-left: 0 !important; }
+.tab:hover { color: var(--ink) !important; transform: none !important; }
+.tab.active {
+  color: var(--ink) !important;
+  border-bottom-color: var(--accent) !important;
+  font-weight: 600;
+}
+@media (max-width: 560px) {
+  .tab { padding: 9px 12px 11px !important; font-size: 11px; letter-spacing: 0.12em; }
+  .tab:first-child { padding-left: 0 !important; }
+}
+
+/* ── Digest list ───────────────────────────────────────────────── */
+.digest-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.date-group { margin-bottom: 22px; }
+.date-group:first-of-type { margin-top: 0; }
+
+.date-group-header {
+  font-family: var(--font-display) !important;
+  font-style: italic !important;
+  font-weight: 400 !important;
+  font-size: 11.5px !important;
+  letter-spacing: 0.18em !important;
+  text-transform: uppercase !important;
+  color: var(--ink-mute) !important;
+  border-top: 2px solid var(--ink) !important;
+  border-bottom: 1px solid var(--hairline) !important;
+  padding: 14px 0 8px !important;
+  margin-bottom: 0 !important;
+  display: flex !important;
+  align-items: baseline !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+}
+.date-group-header .count {
+  font-family: var(--font-mono) !important;
+  font-style: normal !important;
+  font-size: 10.5px !important;
+  color: var(--ink-faint) !important;
+  letter-spacing: 0.05em !important;
+  font-weight: 400 !important;
+}
+.date-group-items {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* ── Digest card (list item) ──────────────────────────────────── */
+.digest-card {
+  background: transparent !important;
+  border: 0 !important;
+  border-bottom: 1px solid var(--hairline) !important;
+  border-radius: 0 !important;
+  padding: 18px 0 !important;
+  cursor: pointer;
+  display: grid !important;
+  grid-template-columns: 1fr auto;
+  gap: 16px;
+  align-items: start;
+  transition: background .15s, padding .15s;
+  margin: 0;
+}
+.digest-card:hover {
+  background: var(--hairline-soft) !important;
+  padding-left: 14px !important;
+  padding-right: 14px !important;
+  margin-left: -14px;
+  margin-right: -14px;
+  transform: none !important;
+  box-shadow: none !important;
+}
+.digest-card .card-body { min-width: 0; }
+
+.digest-card .title,
+.digest-card .title.headline {
+  font-family: var(--font-display) !important;
+  font-weight: 700 !important;
+  font-size: 22px !important;
+  line-height: 1.18 !important;
+  letter-spacing: -0.014em !important;
+  color: var(--ink) !important;
+  font-variation-settings: "opsz" 60 !important;
+  transition: color .15s;
+}
+.digest-card:hover .title.headline { color: var(--accent) !important; }
+
+.digest-card .excerpt,
+.digest-card .excerpt.dek {
+  font-family: var(--font-body) !important;
+  font-style: italic !important;
+  font-size: 15px !important;
+  line-height: 1.5 !important;
+  color: var(--ink-soft) !important;
+  margin-top: 6px !important;
+  -webkit-line-clamp: 2 !important;
+  font-weight: 400 !important;
+}
+
+.digest-card .cadence-badge,
+.digest-card .time-badge {
+  font-family: var(--font-mono) !important;
+  font-style: normal !important;
+  font-size: 10px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.1em !important;
+  text-transform: uppercase !important;
+  color: var(--ink-faint) !important;
+  background: transparent !important;
+  border: 0 !important;
+  padding: 4px 0 0 !important;
+  white-space: nowrap;
+  text-align: right;
+}
+
+.digest-card .updates-note {
+  font-family: var(--font-body) !important;
+  font-style: italic !important;
+  font-size: 12px !important;
+  color: var(--ink-mute) !important;
+  margin-top: 6px !important;
+  letter-spacing: 0.01em !important;
+}
+.digest-card .updates-note::before { content: '⁂  '; color: var(--accent); }
+
+@media (max-width: 560px) {
+  .digest-card .title.headline { font-size: 19px !important; }
+  .digest-card .excerpt.dek { font-size: 14px !important; }
+}
+
+/* ── Digest viewer (article view) ─────────────────────────────── */
+.digest-viewer {
+  display: none;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  margin-top: 0 !important;
+  font-family: var(--font-body);
+  font-size: 17px;
+  line-height: 1.65;
+  color: var(--ink);
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  max-height: none !important;
+  overflow: visible !important;
+}
+.digest-viewer.has-news { white-space: normal; padding: 0; }
+.digest-viewer a { color: var(--accent); }
+
+.back-btn {
+  display: inline-block;
+  margin: 22px 0 28px !important;
+  padding: 2px 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-bottom: 1px solid var(--ink-faint) !important;
+  border-radius: 0 !important;
+  color: var(--ink-mute) !important;
+  cursor: pointer;
+  font-family: var(--font-mono) !important;
+  font-size: 11px !important;
+  letter-spacing: 0.1em !important;
+  text-transform: uppercase;
+  transition: color .15s, border-color .15s;
+}
+.back-btn:hover { color: var(--accent) !important; border-bottom-color: var(--accent) !important; }
+
+/* Newspaper article layout */
+.digest-news { font-family: var(--font-body); }
+.digest-news .news-meta {
+  font-family: var(--font-mono) !important;
+  font-size: 10.5px !important;
+  letter-spacing: 0.12em !important;
+  text-transform: uppercase !important;
+  color: var(--ink-mute) !important;
+  border-bottom: 2px solid var(--ink) !important;
+  padding-bottom: 10px !important;
+  margin-bottom: 28px !important;
+  font-style: normal !important;
+}
+
+.digest-news .section-head {
+  font-family: var(--font-display) !important;
+  font-style: italic !important;
+  font-weight: 600 !important;
+  font-size: 14px !important;
+  letter-spacing: 0.18em !important;
+  text-transform: uppercase !important;
+  color: var(--ink) !important;
+  border-bottom: 1px solid var(--ink) !important;
+  padding-bottom: 6px !important;
+  margin: 38px 0 18px !important;
+}
+.digest-news .section-head:first-of-type { margin-top: 6px !important; }
+
+.digest-news .story {
+  padding: 0 0 22px !important;
+  margin-bottom: 22px !important;
+  border-bottom: 1px dotted var(--hairline) !important;
+}
+.digest-news .story:last-of-type { border-bottom: 0 !important; margin-bottom: 0 !important; padding-bottom: 0 !important; }
+
+.digest-news .story-headline {
+  font-family: var(--font-display) !important;
+  font-weight: 700 !important;
+  font-size: 24px !important;
+  line-height: 1.18 !important;
+  letter-spacing: -0.014em !important;
+  color: var(--ink) !important;
+  font-variation-settings: "opsz" 60 !important;
+}
+.digest-news .story-headline a {
+  color: inherit !important;
+  border-bottom: 0 !important;
+  transition: color .15s;
+}
+.digest-news .story-headline a:hover { color: var(--accent) !important; border-bottom: 0 !important; text-decoration: none !important; }
+
+.digest-news .story-byline {
+  font-family: var(--font-body) !important;
+  font-style: italic !important;
+  font-size: 13px !important;
+  color: var(--ink-mute) !important;
+  margin-top: 6px !important;
+  letter-spacing: 0.01em !important;
+}
+
+.digest-news .story-summary {
+  font-size: 16px !important;
+  line-height: 1.65 !important;
+  color: var(--ink-soft) !important;
+  margin-top: 12px !important;
+  font-feature-settings: "kern", "liga", "onum";
+}
+
+/* Drop cap on first story's summary */
+.digest-news .section-head:first-of-type + .story .story-summary::first-letter {
+  font-family: var(--font-display);
+  font-weight: 900;
+  float: left;
+  font-size: 4.6em;
+  line-height: 0.84;
+  margin: 6px 10px -6px 0;
+  color: var(--accent);
+  font-variation-settings: "opsz" 144;
+}
+
+.digest-news .quick-hits-list {
+  list-style: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  column-count: 2;
+  column-gap: 34px;
+  column-rule: 1px solid var(--hairline);
+}
+@media (max-width: 560px) {
+  .digest-news .quick-hits-list { column-count: 1; }
+}
+.digest-news .quick-hit {
+  padding: 8px 0 !important;
+  border-bottom: 1px dotted var(--hairline) !important;
+  font-family: var(--font-body) !important;
+  font-size: 14.5px !important;
+  line-height: 1.45 !important;
+  color: var(--ink-soft) !important;
+  break-inside: avoid;
+}
+.digest-news .quick-hit a { color: inherit !important; border-bottom: 0 !important; }
+.digest-news .quick-hit a:hover { color: var(--accent) !important; }
+.digest-news .quick-hit-source {
+  font-style: italic !important;
+  color: var(--ink-mute) !important;
+  font-size: 12.5px !important;
+}
+
+/* Asterism at end of digest */
+.digest-news::after {
+  content: '⁂';
+  display: block;
+  text-align: center;
+  color: var(--ink-mute);
+  font-size: 22px;
+  margin: 44px 0 12px;
+  letter-spacing: 0.5em;
+  padding-left: 0.5em;
+}
+
+@media (max-width: 560px) {
+  .digest-news .story-headline { font-size: 20px !important; }
+  .digest-news .story-summary { font-size: 15px !important; }
+}
+
+/* ── Markdown digest (fallback for non-JSON digests) ──────────── */
+.digest-viewer.has-markdown {
+  white-space: normal !important;
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.65;
+  color: var(--ink);
+}
+.digest-viewer.has-markdown h1 {
+  font-family: var(--font-display);
+  font-size: clamp(1.7rem, 3.6vw, 2.2rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  margin: 18px 0 12px;
+  color: var(--ink);
+  font-variation-settings: "opsz" 144;
+}
+.digest-viewer.has-markdown .news-meta {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+  border-bottom: 2px solid var(--ink);
+  padding-bottom: 10px;
+  margin-bottom: 32px;
+  font-style: normal;
+}
+
+/* ── Rich editorial header for markdown digests ───────────────── */
+.digest-viewer.has-markdown .md-editorial-header {
+  text-align: center;
+  margin: 8px 0 0;
+  padding-bottom: 20px;
+}
+.digest-viewer.has-markdown .md-edition-name {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 600;
+  font-size: clamp(2.2rem, 5.5vw, 3.2rem);
+  letter-spacing: -0.018em;
+  color: var(--ink);
+  line-height: 1;
+  margin: 0 0 14px;
+  font-variation-settings: "opsz" 144;
+}
+.digest-viewer.has-markdown .md-date-line {
+  font-family: var(--font-body);
+  font-style: italic;
+  font-size: 14px;
+  color: var(--ink-mute);
+  letter-spacing: 0.01em;
+  padding: 0 0 16px;
+  border-bottom: 1px solid var(--ink);
+  margin: 0 auto;
+  max-width: 580px;
+}
+.digest-viewer.has-markdown .md-date-line a {
+  color: var(--ink);
+  font-style: normal;
+  font-weight: 600;
+  border-bottom: 1px solid var(--ink-faint);
+  padding: 0 2px;
+}
+.digest-viewer.has-markdown .md-date-line a:hover {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+/* Hero image — full-bleed break out of 720px container */
+.digest-viewer.has-markdown .md-hero {
+  width: 100vw;
+  max-width: 100vw;
+  margin: 26px calc(50% - 50vw) 36px;
+  padding: 0;
+  position: relative;
+  overflow: hidden;
+}
+.digest-viewer.has-markdown .md-hero img {
+  display: block;
+  width: 100%;
+  height: clamp(220px, 38vw, 440px);
+  object-fit: cover;
+  object-position: center;
+  filter: grayscale(0.55) contrast(1.05) brightness(0.97);
+  background: var(--paper-elev);
+}
+.digest-viewer.has-markdown .md-hero::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(20,17,13,0.08) 0%, transparent 30%, transparent 70%, var(--paper) 100%);
+}
+.digest-viewer.has-markdown .md-hero figcaption {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  text-align: center;
+  padding: 10px 24px 0;
+  max-width: var(--measure);
+  margin: 0 auto;
+  position: relative;
+  z-index: 1;
+}
+@media (max-width: 560px) {
+  .digest-viewer.has-markdown .md-hero img { height: 220px; }
+  .digest-viewer.has-markdown .md-hero figcaption { font-size: 9.5px; padding: 8px 16px 0; }
+}
+
+/* Story-headline divider: a hairline rule above every story after the first */
+.digest-viewer.has-markdown .md-story-headline {
+  margin-top: 30px;
+}
+.digest-viewer.has-markdown .md-story-headline:not(:first-of-type) {
+  padding-top: 28px;
+  border-top: 1px dotted var(--hairline);
+  margin-top: 28px;
+}
+.digest-viewer.has-markdown h2 + .md-story-headline,
+.digest-viewer.has-markdown h2 + h3.md-story-headline {
+  border-top: 0;
+  padding-top: 0;
+  margin-top: 6px;
+}
+
+/* Bullets inside a city / venue subhead block — list rule treatment */
+.digest-viewer.has-markdown .md-subhead + ul {
+  margin-top: 6px;
+}
+
+/* ── Newsletter CTA ───────────────────────────────────────────── */
+.digest-viewer.has-markdown .newsletter-cta {
+  margin: 56px 0 0;
+  padding: 40px 24px;
+  border-top: 3px double var(--ink);
+  border-bottom: 1px solid var(--hairline);
+  text-align: center;
+  background: var(--paper-elev);
+  position: relative;
+}
+.digest-viewer.has-markdown .newsletter-cta::before {
+  content: '⁂';
+  display: block;
+  color: var(--accent);
+  font-size: 18px;
+  letter-spacing: 0.4em;
+  padding-left: 0.4em;
+  margin-bottom: 10px;
+}
+.digest-viewer.has-markdown .nl-headline {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 700;
+  font-size: clamp(1.7rem, 4vw, 2.2rem);
+  color: var(--ink);
+  letter-spacing: -0.012em;
+  line-height: 1.1;
+  margin-bottom: 10px;
+  font-variation-settings: "opsz" 144;
+}
+.digest-viewer.has-markdown .nl-blurb {
+  font-family: var(--font-body);
+  font-style: italic;
+  font-size: 14.5px;
+  color: var(--ink-mute);
+  margin: 0 auto 22px;
+  max-width: 440px;
+  line-height: 1.5;
+}
+.digest-viewer.has-markdown .nl-blurb a {
+  color: var(--ink);
+  font-weight: 600;
+  font-style: normal;
+  border-bottom: 1px solid var(--ink-faint);
+}
+.digest-viewer.has-markdown .nl-blurb a:hover { color: var(--accent); border-bottom-color: var(--accent); }
+.digest-viewer.has-markdown .nl-form {
+  display: flex;
+  gap: 0;
+  max-width: 440px;
+  margin: 0 auto;
+  border: 1px solid var(--ink);
+  background: var(--paper);
+}
+.digest-viewer.has-markdown .nl-form input {
+  flex: 1;
+  background: transparent;
+  border: 0;
+  padding: 11px 14px;
+  font-family: var(--font-body);
+  font-size: 14px;
+  color: var(--ink);
+  outline: none;
+}
+.digest-viewer.has-markdown .nl-form input::placeholder {
+  color: var(--ink-faint);
+  font-style: italic;
+}
+.digest-viewer.has-markdown .nl-form input:focus {
+  background: var(--paper-elev);
+}
+.digest-viewer.has-markdown .nl-form button {
+  background: var(--ink);
+  color: var(--paper);
+  border: 0;
+  padding: 11px 22px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background .15s;
+  white-space: nowrap;
+}
+.digest-viewer.has-markdown .nl-form button:hover { background: var(--accent); }
+.digest-viewer.has-markdown .nl-form button:disabled { opacity: .5; cursor: default; }
+.digest-viewer.has-markdown .nl-fineprint {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  margin-top: 16px;
+}
+.digest-viewer.has-markdown h2 {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 600;
+  font-size: 13.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink);
+  border-bottom: 1px solid var(--ink);
+  padding-bottom: 6px;
+  margin: 40px 0 20px;
+}
+.digest-viewer.has-markdown h2:first-of-type { margin-top: 6px; }
+.digest-viewer.has-markdown h3,
+.digest-viewer.has-markdown .md-story-headline {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 22px;
+  line-height: 1.2;
+  letter-spacing: -0.014em;
+  color: var(--ink);
+  margin: 28px 0 6px;
+  font-variation-settings: "opsz" 60;
+}
+.digest-viewer.has-markdown h3:first-child,
+.digest-viewer.has-markdown .md-story-headline:first-child { margin-top: 0; }
+.digest-viewer.has-markdown .md-subhead {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 600;
+  font-size: 17px;
+  letter-spacing: 0.01em;
+  color: var(--ink);
+  margin: 26px 0 8px;
+  border-bottom: 1px dotted var(--hairline);
+  padding-bottom: 6px;
+}
+.digest-viewer.has-markdown p {
+  margin: 0 0 14px;
+  font-size: 16px;
+  line-height: 1.65;
+  color: var(--ink-soft);
+}
+.digest-viewer.has-markdown hr {
+  border: 0;
+  border-top: 2px solid var(--ink);
+  margin: 36px 0 32px;
+}
+.digest-viewer.has-markdown ul {
+  list-style: none;
+  padding: 0;
+  margin: 10px 0 22px;
+}
+.digest-viewer.has-markdown ul li {
+  padding: 9px 0;
+  border-bottom: 1px dotted var(--hairline);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+.digest-viewer.has-markdown ul li:last-child { border-bottom: 0; }
+.digest-viewer.has-markdown ul li::before {
+  content: '·';
+  color: var(--accent);
+  font-weight: 700;
+  margin-right: 10px;
+  font-size: 18px;
+  line-height: 0;
+  vertical-align: middle;
+}
+.digest-viewer.has-markdown a {
+  color: var(--accent);
+  border-bottom: 1px solid transparent;
+  transition: border-color .15s;
+}
+.digest-viewer.has-markdown a:hover { border-bottom-color: var(--accent); }
+.digest-viewer.has-markdown strong { font-weight: 700; color: var(--ink); }
+.digest-viewer.has-markdown em { font-style: italic; color: var(--ink-soft); }
+.digest-viewer.has-markdown p.md-sources {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+  margin: -8px 0 22px;
+  padding-bottom: 22px;
+  border-bottom: 1px dotted var(--hairline);
+  line-height: 1.8;
+}
+.digest-viewer.has-markdown p.md-sources a {
+  color: var(--ink-mute);
+  border-bottom: 0;
+  padding: 0 4px;
+  transition: color .15s;
+}
+.digest-viewer.has-markdown p.md-sources a:hover { color: var(--accent); }
+/* Drop cap on the first body paragraph after the first H2 */
+.digest-viewer.has-markdown h2:first-of-type ~ h3:first-of-type + p::first-letter,
+.digest-viewer.has-markdown h2:first-of-type ~ .md-story-headline:first-of-type + p::first-letter {
+  font-family: var(--font-display);
+  font-weight: 900;
+  float: left;
+  font-size: 4.4em;
+  line-height: 0.85;
+  margin: 6px 10px -6px 0;
+  color: var(--accent);
+  font-variation-settings: "opsz" 144;
+}
+.digest-viewer.has-markdown::after {
+  content: '⁂';
+  display: block;
+  text-align: center;
+  color: var(--ink-mute);
+  font-size: 22px;
+  margin: 48px 0 12px;
+  letter-spacing: 0.5em;
+  padding-left: 0.5em;
+}
+@media (max-width: 560px) {
+  .digest-viewer.has-markdown h3,
+  .digest-viewer.has-markdown .md-story-headline { font-size: 19px; }
+  .digest-viewer.has-markdown p { font-size: 15.5px; }
+}
+
+/* ── Load more ─────────────────────────────────────────────────── */
+.load-more-btn {
+  padding: 10px 28px !important;
+  background: transparent !important;
+  border: 1px solid var(--ink) !important;
+  border-radius: 0 !important;
+  color: var(--ink) !important;
+  cursor: pointer;
+  font-family: var(--font-mono) !important;
+  font-size: 11px !important;
+  letter-spacing: 0.12em !important;
+  text-transform: uppercase !important;
+  transition: background .12s, color .12s;
+}
+.load-more-btn:hover { background: var(--ink) !important; color: var(--paper) !important; }
+
+/* ── Empty / loading ───────────────────────────────────────────── */
+.empty {
+  color: var(--ink-mute);
+  text-align: center;
+  padding: 60px 20px;
+  font-family: var(--font-body);
+  font-style: italic;
+  font-size: 15px;
+}
+.loading {
+  color: var(--ink-mute);
+  text-align: center;
+  padding: 32px;
+  font-size: 18px;
+}
+
+.loading-skeleton { display: flex; flex-direction: column; gap: 0; }
+.skeleton-card {
+  background: transparent !important;
+  border: 0 !important;
+  border-bottom: 1px solid var(--hairline) !important;
+  border-radius: 0 !important;
+  padding: 18px 0 !important;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+.skeleton-line {
+  height: 14px;
+  background: var(--hairline) !important;
+  border-radius: 2px;
+  margin-bottom: 8px;
+}
 .skeleton-line:last-child { height: 12px; width: 60%; margin-bottom: 0; }
-.skeleton-title { height: 16px; width: 40%; background: #2a2a2a; border-radius: 4px; margin-bottom: 6px; }
-body.light .skeleton-line { background: #ddd; }
-body.light .skeleton-title { background: #ccc; }
-body.light .skeleton-card { background: #fff; }
-@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
-@keyframes pulse-light { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
-  .mark-btn { display: inline-block; margin-left: 6px; padding: 1px 8px; font-size: 11px; background: #2a2a2a; border: 1px solid #444; border-radius: 4px; color: #f0b040; cursor: pointer; vertical-align: middle; transition: all .15s; text-decoration: none; }
-  .mark-btn:hover { background: #3a3a1a; border-color: #f0b040; text-decoration: none; }
-  .mark-btn.marked { color: #40c040; border-color: #40c040; cursor: default; }
-  .mark-btn.disabled { color: #555; border-color: #333; cursor: pointer; opacity: .6; }
-  .mark-btn.disabled:hover { background: #2a2a2a; border-color: #555; }
-  .login-prompt { text-align: center; padding: 60px 20px; }
-  .login-prompt .icon { font-size: 48px; margin-bottom: 16px; }
-  .login-prompt .msg { color: #888; font-size: 15px; line-height: 1.6; margin-bottom: 20px; }
-  .login-prompt .auth-btn { display: inline-block; padding: 10px 24px; font-size: 14px; }
-  .login-banner { background: #1a1a1a; border: 1px solid #282828; border-radius: 10px; padding: 10px 16px; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 13px; color: #999; }
-  .login-banner a { color: #58a6ff; text-decoration: none; }
-  .login-banner a:hover { text-decoration: underline; }
-  .login-banner .dismiss { cursor: pointer; color: #555; font-size: 16px; padding: 0 4px; line-height: 1; }
-  .login-banner .dismiss:hover { color: #aaa; }
-  .auth-bar { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
-  .auth-tools { display: flex; align-items: center; gap: 6px; padding-left: 8px; border-left: 1px solid #333; margin-left: 2px; }
-  .auth-bar img { width: 32px; height: 32px; border-radius: 50%; }
-  .auth-bar .user-name { font-size: 13px; color: #aaa; }
-  .user-menu { position: relative; display: flex; align-items: center; gap: 8px; cursor: pointer; }
-  .user-dropdown { display: none; position: absolute; top: 100%; right: 0; margin-top: 6px; background: #1a1a1a; border: 1px solid #333; border-radius: 8px; padding: 6px 0; min-width: 120px; z-index: 100; box-shadow: 0 4px 12px rgba(0,0,0,.4); }
-  .user-dropdown.show { display: block; }
-  .user-dropdown a { display: block; padding: 8px 16px; color: #aaa; text-decoration: none; font-size: 13px; transition: all .15s; }
-  .user-dropdown a:hover { background: #2a2a2a; color: #fff; }
-  .auth-btn { padding: 6px 14px; border-radius: 6px; border: 1px solid #444; background: #2a2a2a; color: #ccc; cursor: pointer; font-size: 12px; text-decoration: none; transition: all .2s; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
-  .auth-btn:hover { border-color: #666; color: #fff; }
-  .auth-btn .g-logo { width:14px;height:14px; }
-  .container { }
-  .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #333; color: #fff; padding: 10px 20px; border-radius: 8px; font-size: 13px; z-index: 999; opacity: 0; transition: opacity .3s; pointer-events: none; }
-  .toast.show { opacity: 1; }
-  .mark-card { background: #1a1a1a; border: 1px solid #282828; border-radius: 12px; padding: 16px 20px; transition: all 0.2s; }
-  .mark-card:hover { border-color: #444; background: #1e1e1e; }
-  .mark-card .mark-meta { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
-  .mark-card .mark-date { font-size: 12px; color: #666; }
-  .mark-card .mark-status { font-size: 11px; padding: 2px 8px; border-radius: 4px; }
-  .mark-card .mark-status.pending { background: #3a2a00; color: #f0b040; }
-  .mark-card .mark-status.done { background: #0a2a0a; color: #40c040; }
-  .mark-card .mark-author { font-size: 14px; font-weight: 600; color: #58a6ff; }
-  .mark-card .mark-link { margin-top: 6px; }
-  .mark-card .mark-link a { font-size: 12px; color: #666; text-decoration: none; word-break: break-all; }
-  .mark-card .mark-link a:hover { color: #58a6ff; text-decoration: underline; }
-  .mark-stats { display: flex; gap: 16px; margin-bottom: 16px; }
-  .mark-stat { background: #1a1a1a; border: 1px solid #282828; border-radius: 8px; padding: 12px 16px; flex: 1; text-align: center; }
-  .mark-stat .num { font-size: 24px; font-weight: 700; }
-  .mark-stat .label { font-size: 12px; color: #888; margin-top: 2px; }
-  .source-card { background: #1a1a1a; border: 1px solid #282828; border-radius: 12px; padding: 16px 20px; transition: all 0.2s; }
-  .source-card:hover { border-color: #444; background: #1e1e1e; }
-  .source-card .source-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
-  .source-card .source-name { font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
-  .source-card .source-meta { font-size: 12px; color: #666; margin-top: 6px; display: flex; gap: 12px; flex-wrap: wrap; }
-  .source-actions { display: flex; gap: 6px; align-items: center; }
-  .source-actions button { padding: 4px 10px; font-size: 12px; background: #2a2a2a; border: 1px solid #444; border-radius: 6px; color: #aaa; cursor: pointer; transition: all .15s; }
-  .source-actions button:hover { border-color: #666; color: #fff; }
-  .source-actions button.danger:hover { border-color: #f04040; color: #f04040; }
-  .toggle-switch { position: relative; display: inline-block; width: 36px; height: 20px; cursor: pointer; }
-  .toggle-switch input { opacity: 0; width: 0; height: 0; }
-  .toggle-slider { position: absolute; inset: 0; background: #333; border-radius: 20px; transition: .3s; }
-  .toggle-slider:before { content: ''; position: absolute; height: 14px; width: 14px; left: 3px; bottom: 3px; background: #888; border-radius: 50%; transition: .3s; }
-  .toggle-switch input:checked + .toggle-slider { background: #2a5a2a; }
-  .toggle-switch input:checked + .toggle-slider:before { transform: translateX(16px); background: #40c040; }
-  .source-form { background: #1a1a1a; border: 1px solid #333; border-radius: 12px; padding: 20px; margin-bottom: 16px; }
-  .source-form .form-row { margin-bottom: 12px; }
-  .source-form label { display: block; font-size: 12px; color: #888; margin-bottom: 4px; }
-  .source-form input, .source-form select, .source-form textarea { width: 100%; padding: 8px 12px; background: #0f0f0f; border: 1px solid #333; border-radius: 6px; color: #e0e0e0; font-size: 13px; font-family: inherit; }
-  .source-form textarea { min-height: 60px; resize: vertical; font-family: monospace; }
-  .source-form .form-actions { display: flex; gap: 8px; margin-top: 16px; }
-  .source-form .form-actions button { padding: 8px 20px; border-radius: 6px; border: 1px solid #444; background: #2a2a2a; color: #ccc; cursor: pointer; font-size: 13px; transition: all .2s; }
-  .source-form .form-actions button.primary { background: #1a3a1a; border-color: #40c040; color: #40c040; }
-  .source-form .form-actions button:hover { border-color: #666; color: #fff; }
-  .pack-card { background: #1a1a1a; border: 1px solid #282828; border-radius: 12px; padding: 16px 20px; transition: all 0.2s; }
-  .pack-card:hover { border-color: #444; background: #1e1e1e; }
-  .pack-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
-  .pack-name { font-size: 16px; font-weight: 600; }
-  .pack-desc { font-size: 13px; color: #888; margin-top: 4px; }
-  .pack-meta { display: flex; gap: 12px; align-items: center; margin-top: 10px; font-size: 12px; color: #666; flex-wrap: wrap; }
-  .pack-meta img { width: 20px; height: 20px; border-radius: 50%; }
-  .pack-sources-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
-  .pack-source-tag { font-size: 11px; padding: 3px 8px; background: #141414; border: 1px solid #282828; border-radius: 6px; color: #aaa; }
-  .pack-actions { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
-  .pack-actions button { padding: 6px 16px; font-size: 12px; border-radius: 6px; cursor: pointer; transition: all .2s; }
-  .pack-install-btn { background: #1a3a1a; border: 1px solid #40c040; color: #40c040; }
-  .pack-install-btn:hover { background: #2a4a2a; }
-  .pack-install-btn.done { background: #1a2a1a; border-color: #336633; color: #666; cursor: default; }
-  .pack-delete-btn { background: #2a2a2a; border: 1px solid #444; color: #aaa; }
-  .pack-delete-btn:hover { border-color: #f04040; color: #f04040; }
-  .pack-detail-page { max-width: 700px; margin: 0 auto; }
-  .pack-detail-sources { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
-  .pack-detail-source { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: #141414; border: 1px solid #222; border-radius: 8px; }
-  .pack-detail-source .icon { font-size: 18px; }
-  .pack-detail-source .info { flex: 1; }
-  .pack-detail-source .info .name { font-size: 14px; font-weight: 500; }
-  .pack-detail-source .info .type { font-size: 11px; color: #666; }
+.skeleton-title {
+  height: 22px;
+  width: 70%;
+  background: var(--hairline) !important;
+  border-radius: 2px;
+  margin-bottom: 10px;
+}
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+/* ── Mark / bookmark UI ────────────────────────────────────────── */
+.mark-btn {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 7px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  background: transparent;
+  border: 1px solid var(--accent);
+  border-radius: 0;
+  color: var(--accent);
+  cursor: pointer;
+  vertical-align: middle;
+  text-decoration: none;
+  transition: background .12s, color .12s;
+}
+.mark-btn:hover { background: var(--accent); color: var(--paper); text-decoration: none; }
+.mark-btn.marked { color: var(--ink-mute); border-color: var(--ink-faint); cursor: default; }
+.mark-btn.marked:hover { background: transparent; color: var(--ink-mute); }
+.mark-btn.disabled { color: var(--ink-faint); border-color: var(--hairline); }
+.mark-btn.disabled:hover { background: transparent; color: var(--ink-faint); }
+
+.mark-stats {
+  display: flex;
+  gap: 0;
+  margin-bottom: 24px;
+  border-top: 2px solid var(--ink);
+  border-bottom: 1px solid var(--hairline);
+}
+.mark-stat {
+  background: transparent !important;
+  border: 0 !important;
+  border-right: 1px solid var(--hairline) !important;
+  border-radius: 0 !important;
+  padding: 14px 18px !important;
+  flex: 1;
+  text-align: center;
+}
+.mark-stat:last-child { border-right: 0 !important; }
+.mark-stat .num {
+  font-family: var(--font-display) !important;
+  font-size: 30px !important;
+  font-weight: 700 !important;
+  color: var(--ink) !important;
+  font-feature-settings: "tnum" !important;
+}
+.mark-stat .label {
+  font-family: var(--font-mono) !important;
+  font-size: 10px !important;
+  letter-spacing: 0.12em !important;
+  text-transform: uppercase !important;
+  color: var(--ink-mute) !important;
+  margin-top: 4px !important;
+}
+
+.mark-card {
+  background: transparent !important;
+  border: 0 !important;
+  border-bottom: 1px solid var(--hairline) !important;
+  border-radius: 0 !important;
+  padding: 18px 0 !important;
+  transition: background .15s, padding .15s;
+}
+.mark-card:hover { background: var(--hairline-soft) !important; padding-left: 14px !important; padding-right: 14px !important; margin-left: -14px; margin-right: -14px; }
+.mark-card .mark-meta { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.mark-card .mark-date { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-faint); letter-spacing: 0.04em; }
+.mark-card .mark-status {
+  font-family: var(--font-mono);
+  font-size: 9.5px !important;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 2px 8px !important;
+  border-radius: 0 !important;
+  border: 1px solid;
+  font-weight: 500;
+}
+.mark-card .mark-status.pending { color: var(--accent) !important; border-color: var(--accent); background: transparent !important; }
+.mark-card .mark-status.done { color: var(--ink-mute) !important; border-color: var(--ink-faint); background: transparent !important; }
+.mark-card .mark-author { font-family: var(--font-display) !important; font-size: 17px !important; font-weight: 600 !important; color: var(--ink) !important; }
+.mark-card .mark-link { margin-top: 6px; }
+.mark-card .mark-link a { font-family: var(--font-mono); font-size: 11px; color: var(--ink-mute); border-bottom: 0; word-break: break-all; }
+.mark-card .mark-link a:hover { color: var(--accent); }
+
+/* ── Login prompt ──────────────────────────────────────────────── */
+.login-prompt { text-align: center; padding: 80px 20px; }
+.login-prompt .icon { font-size: 32px; margin-bottom: 18px; opacity: 0.55; }
+.login-prompt .msg {
+  font-family: var(--font-display);
+  font-style: italic;
+  color: var(--ink-mute);
+  font-size: 18px;
+  line-height: 1.5;
+  margin-bottom: 28px;
+}
+.login-prompt .auth-btn { padding: 8px 22px; font-size: 11px; }
+
+/* ── Source admin & packs ──────────────────────────────────────── */
+.sources-heading { font-family: var(--font-display) !important; color: var(--ink) !important; font-weight: 700 !important; }
+.sources-count { font-family: var(--font-mono) !important; color: var(--ink-mute) !important; font-size: 11px !important; letter-spacing: 0.05em; }
+.sources-blurb { font-family: var(--font-body) !important; font-style: italic; color: var(--ink-mute) !important; }
+.source-type-pill {
+  font-family: var(--font-mono);
+  background: var(--accent-tint) !important;
+  padding: 1px 6px !important;
+  border-radius: 0 !important;
+  color: var(--accent-mute) !important;
+  font-size: 10px !important;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.source-card, .pack-card {
+  background: transparent !important;
+  border: 0 !important;
+  border-bottom: 1px solid var(--hairline) !important;
+  border-radius: 0 !important;
+  padding: 16px 0 !important;
+  transition: background .15s;
+}
+.source-card:hover, .pack-card:hover {
+  background: var(--hairline-soft) !important;
+  padding-left: 14px !important;
+  padding-right: 14px !important;
+  margin-left: -14px;
+  margin-right: -14px;
+}
+.source-card .source-header, .pack-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+.source-card .source-name, .pack-name {
+  font-family: var(--font-display) !important;
+  font-size: 17px !important;
+  font-weight: 600 !important;
+  color: var(--ink) !important;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.pack-desc { font-family: var(--font-body) !important; font-style: italic; font-size: 14px !important; color: var(--ink-mute) !important; margin-top: 4px; }
+.source-card .source-meta, .pack-meta {
+  font-family: var(--font-mono) !important;
+  font-size: 10.5px !important;
+  letter-spacing: 0.04em;
+  color: var(--ink-faint) !important;
+  margin-top: 8px;
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.pack-meta img { width: 18px; height: 18px; border-radius: 50%; }
+
+.source-actions, .pack-actions { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
+.source-actions button, .pack-actions button {
+  padding: 4px 12px !important;
+  font-family: var(--font-mono) !important;
+  font-size: 10px !important;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  background: transparent !important;
+  border: 1px solid var(--ink-faint) !important;
+  border-radius: 0 !important;
+  color: var(--ink-mute) !important;
+  cursor: pointer;
+  transition: color .12s, border-color .12s;
+}
+.source-actions button:hover, .pack-actions button:hover { color: var(--ink) !important; border-color: var(--ink) !important; }
+.source-actions button.danger:hover { color: var(--accent) !important; border-color: var(--accent) !important; }
+
+.toggle-switch { position: relative; display: inline-block; width: 34px; height: 18px; cursor: pointer; }
+.toggle-switch input { opacity: 0; width: 0; height: 0; }
+.toggle-slider { position: absolute; inset: 0; background: var(--hairline); border-radius: 18px; transition: .25s; }
+.toggle-slider:before {
+  content: '';
+  position: absolute;
+  height: 14px; width: 14px;
+  left: 2px; bottom: 2px;
+  background: var(--paper-elev);
+  border: 1px solid var(--ink-faint);
+  border-radius: 50%;
+  transition: .25s;
+}
+.toggle-switch input:checked + .toggle-slider { background: var(--accent); }
+.toggle-switch input:checked + .toggle-slider:before { transform: translateX(15px); border-color: var(--accent); }
+
+.source-form {
+  background: var(--paper-elev) !important;
+  border: 0 !important;
+  border-top: 2px solid var(--ink) !important;
+  border-bottom: 1px solid var(--hairline) !important;
+  border-radius: 0 !important;
+  padding: 22px !important;
+  margin-bottom: 22px !important;
+}
+.source-form .form-row { margin-bottom: 14px; }
+.source-form label {
+  display: block;
+  font-family: var(--font-mono) !important;
+  font-size: 10px !important;
+  letter-spacing: 0.12em !important;
+  text-transform: uppercase !important;
+  color: var(--ink-mute) !important;
+  margin-bottom: 5px !important;
+}
+.source-form input, .source-form select, .source-form textarea {
+  width: 100% !important;
+  padding: 8px 12px !important;
+  background: var(--paper) !important;
+  border: 1px solid var(--hairline) !important;
+  border-radius: 0 !important;
+  color: var(--ink) !important;
+  font-family: var(--font-body) !important;
+  font-size: 14px !important;
+}
+.source-form input:focus, .source-form select:focus, .source-form textarea:focus {
+  outline: none !important;
+  border-color: var(--ink) !important;
+}
+.source-form textarea { min-height: 70px !important; resize: vertical; font-family: var(--font-mono) !important; font-size: 12px !important; }
+.source-form .form-actions { display: flex; gap: 8px; margin-top: 16px; }
+.source-form .form-actions button {
+  padding: 8px 18px !important;
+  font-family: var(--font-mono) !important;
+  font-size: 10.5px !important;
+  letter-spacing: 0.12em !important;
+  text-transform: uppercase !important;
+  border-radius: 0 !important;
+  border: 1px solid var(--ink-faint) !important;
+  background: transparent !important;
+  color: var(--ink-mute) !important;
+  cursor: pointer;
+  transition: color .12s, border-color .12s, background .12s;
+}
+.source-form .form-actions button.primary { background: var(--ink) !important; border-color: var(--ink) !important; color: var(--paper) !important; }
+.source-form .form-actions button.primary:hover { background: var(--accent) !important; border-color: var(--accent) !important; }
+.source-form .form-actions button:hover { color: var(--ink) !important; border-color: var(--ink) !important; }
+
+.pack-sources-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.pack-source-tag {
+  font-family: var(--font-mono) !important;
+  font-size: 10px !important;
+  letter-spacing: 0.06em;
+  padding: 3px 8px !important;
+  background: transparent !important;
+  border: 1px solid var(--hairline) !important;
+  border-radius: 0 !important;
+  color: var(--ink-mute) !important;
+}
+.pack-install-btn { background: var(--ink) !important; border-color: var(--ink) !important; color: var(--paper) !important; }
+.pack-install-btn:hover { background: var(--accent) !important; border-color: var(--accent) !important; }
+.pack-install-btn.done { background: transparent !important; color: var(--ink-mute) !important; border-color: var(--ink-faint) !important; cursor: default; }
+.pack-delete-btn:hover { color: var(--accent) !important; border-color: var(--accent) !important; }
+
+.pack-detail-page { max-width: var(--measure); margin: 0 auto; }
+.pack-detail-sources { display: flex; flex-direction: column; gap: 0; margin-top: 18px; }
+.pack-detail-source {
+  display: flex !important;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-bottom: 1px solid var(--hairline) !important;
+  border-radius: 0 !important;
+}
+.pack-detail-source .icon { font-size: 16px; }
+.pack-detail-source .info { flex: 1; }
+.pack-detail-source .info .name { font-family: var(--font-display) !important; font-size: 15px !important; font-weight: 500 !important; color: var(--ink) !important; }
+.pack-detail-source .info .type { font-family: var(--font-mono) !important; font-size: 10.5px !important; color: var(--ink-mute) !important; letter-spacing: 0.04em; }
+
+/* ── Toast ─────────────────────────────────────────────────────── */
+.toast {
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--ink) !important;
+  color: var(--paper) !important;
+  padding: 10px 22px !important;
+  border-radius: 0 !important;
+  font-family: var(--font-mono) !important;
+  font-size: 11px !important;
+  letter-spacing: 0.1em !important;
+  text-transform: uppercase !important;
+  z-index: 999;
+  opacity: 0;
+  transition: opacity .25s;
+  pointer-events: none;
+}
+.toast.show { opacity: 1; }
+
+/* ── Changelog overlay ─────────────────────────────────────────── */
+.changelog-overlay { background: rgba(20,17,13,0.85) !important; }
+.changelog-inner { color: var(--ink) !important; font-family: var(--font-body) !important; }
+.changelog-inner h1 { font-family: var(--font-display) !important; color: var(--ink) !important; }
+.changelog-inner h2 { font-family: var(--font-display) !important; color: var(--accent) !important; border-bottom: 1px solid var(--hairline) !important; }
+.changelog-inner h3 { color: var(--ink-soft) !important; }
+.changelog-inner li { color: var(--ink-soft) !important; }
+.changelog-inner code { font-family: var(--font-mono) !important; background: var(--accent-tint) !important; color: var(--accent-mute) !important; padding: 1px 4px !important; }
 </style>
 </head>
 <body>
 <div class="container">
-  <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:8px;">
-    <h1 style="margin:0;cursor:pointer" onclick="goHome()">☀️ Sliver</h1>
-    <div style="display:flex;align-items:center;gap:8px;">
-      <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Toggle theme">🌙</button>
-      <div class="auth-bar" id="authBar"></div>
+  <header class="masthead">
+    <div class="masthead-row top">
+      <div class="masthead-edition">
+        <span class="wire-pip" aria-hidden="true"></span>
+        Vol. <span id="volNum">II</span> · No. <span id="issueNum">—</span>
+      </div>
+      <div class="masthead-controls">
+        <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Toggle theme">☀️</button>
+        <div class="auth-bar" id="authBar"></div>
+      </div>
     </div>
-  </div>
-  <p class="subtitle" id="subtitleText">AI NEWS DIGEST — powered by <a href="https://sliver.network/" target="_blank" rel="noopener" class="agent-name sliver">Sliver</a></p>
-  <p class="info-banner" id="infoBanner" style="color:#e8a838;font-size:0.85em;margin:-16px 0 16px 0;"></p>
-  <div class="tabs">
-    <div class="tab active" data-type="4h">4H Briefs</div>
-    <div class="tab" data-type="daily">Daily</div>
-    <div class="tab" data-type="weekly">Weekly</div>
-    <div class="tab" data-type="monthly">Monthly</div>
-    <div class="tab" data-type="marks">📌 Marks</div>
+    <h1 class="masthead-title" onclick="goHome()">The MINY Feed</h1>
+    <p class="dateline" id="subtitleText"></p>
+  </header>
+  <p class="info-banner" id="infoBanner"></p>
+  <div class="tabs section-nav">
+    <div class="tab active" data-type="4h">The Wire</div>
+    <div class="tab" data-type="daily">Daily Edition</div>
+    <div class="tab" data-type="weekly">Weekly Review</div>
+    <div class="tab" data-type="monthly">Monthly Almanac</div>
+    <div class="tab" data-type="marks">Clippings</div>
   </div>
   <div id="loginBanner" class="login-banner" style="display:none;">
-    <span>💡 Sign in with Google to bookmark articles and manage your reading list</span>
-    <span style="display:flex;align-items:center;gap:10px;">
-      <a href="#" id="bannerLogin">Login</a>
-      <span class="dismiss" onclick="dismissBanner()">✕</span>
+    <span>Sign in with Google to bookmark articles and manage your reading list.</span>
+    <span style="display:flex;align-items:center;gap:14px;">
+      <a href="#" id="bannerLogin">Sign in</a>
+      <span class="dismiss" onclick="dismissBanner()">×</span>
     </span>
   </div>
-  <div id="list" class="digest-list"><div class="loading">⏳</div></div>
+  <div id="list" class="digest-list"><div class="loading">…</div></div>
   <div id="viewer" class="digest-viewer"></div>
 </div>
 <div class="toast" id="toast"></div>
@@ -221,36 +1395,37 @@ window.onerror = function(msg, src, line) {
 
 // ── Theme ──
 function initTheme() {
-  const saved = localStorage.getItem('sliver_theme') || 'dark';
-  if (saved === 'light') document.body.classList.add('light');
+  const saved = localStorage.getItem('sliver_theme');
+  // Light is default — only explicit 'dark' opts in.
+  if (saved === 'dark') document.body.classList.add('dark');
   updateThemeIcon();
 }
 function toggleTheme() {
-  document.body.classList.toggle('light');
-  const isLight = document.body.classList.contains('light');
-  localStorage.setItem('sliver_theme', isLight ? 'light' : 'dark');
+  document.body.classList.toggle('dark');
+  const isDark = document.body.classList.contains('dark');
+  localStorage.setItem('sliver_theme', isDark ? 'dark' : 'light');
   updateThemeIcon();
 }
 function updateThemeIcon() {
   const btn = document.getElementById('themeToggle');
-  if (btn) btn.textContent = document.body.classList.contains('light') ? '☀️' : '🌙';
+  if (btn) btn.textContent = document.body.classList.contains('dark') ? '🌙' : '☀️';
 }
 initTheme();
 
 // ── i18n ──
 const I18N = {
   en: {
-    title: '☀️ Sliver',
-    subtitle: 'AI NEWS DIGEST — POWERED BY <a href="https://sliver.network/" target="_blank" rel="noopener" class="agent-name sliver">Sliver</a>',
-    tab4h: '4H Briefs', tabDaily: 'Daily', tabWeekly: 'Weekly', tabMonthly: 'Monthly', tabMarks: '📌 Marks',
+    title: 'The MINY Feed',
+    subtitle: '<span id="datelineDate"></span> · Curated by <a href="https://sliver.network/" target="_blank" rel="noopener" class="agent-name sliver">Sliver</a>',
+    tab4h: 'The Wire', tabDaily: 'Daily Edition', tabWeekly: 'Weekly Review', tabMonthly: 'Monthly Almanac', tabMarks: 'Clippings',
     loginBanner: '💡 Sign in with Google to bookmark articles and manage your reading list',
     loginBtn: 'Login', logout: 'Logout', signIn: 'Sign in',
     loading: 'Loading...', noData: 'No data', loadMore: 'Load More', loadingMore: 'Loading...',
     loadFail: 'Failed to load', back: '← Back', cantLoad: 'Cannot load',
     today: 'Today', yesterday: 'Yesterday', articles: 'articles',
-    weekLabel: (y, w) => `📅 ${y} Week ${w}`,
-    monthLabel: (y, m) => `📅 ${['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][m]} ${y}`,
-    yearLabel: (y) => `📅 ${y}`,
+    weekLabel: (y, w) => `Week ${w}, ${y}`,
+    monthLabel: (y, m) => `${['','January','February','March','April','May','June','July','August','September','October','November','December'][m]} ${y}`,
+    yearLabel: (y) => `${y}`,
     totalMarks: 'Total', deepDived: 'Deep Dived', pending: 'Pending',
     byTopic: '🏷️ By Topic', byTime: '🕐 By Time',
     noMarks: 'No marks yet', marksDone: '✅ Done', marksPending: '⏳ Pending',
@@ -311,6 +1486,23 @@ function setLang(l) {
 function applyLang() {
   document.querySelector('h1').textContent = t('title');
   document.getElementById('subtitleText').innerHTML = t('subtitle');
+  const dd = document.getElementById('datelineDate');
+  if (dd) {
+    const today = new Date();
+    dd.textContent = today.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  }
+  // Volume / Issue — Vol = year-2024 (Roman), Issue = day-of-year (zero-padded)
+  const volEl = document.getElementById('volNum');
+  const issueEl = document.getElementById('issueNum');
+  if (volEl && issueEl) {
+    const now = new Date();
+    const yearStart = new Date(now.getFullYear(), 0, 1);
+    const dayOfYear = Math.floor((now - yearStart) / 86400000) + 1;
+    const romans = ['','I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII'];
+    const volIdx = now.getFullYear() - 2024;
+    volEl.textContent = romans[volIdx] || String(volIdx);
+    issueEl.textContent = String(dayOfYear).padStart(3, '0');
+  }
   const ib = document.getElementById('infoBanner'); if (ib) ib.innerHTML = t('infoBanner');
   document.querySelector('[data-type="4h"]').textContent = t('tab4h');
   document.querySelector('[data-type="daily"]').textContent = t('tabDaily');
@@ -438,7 +1630,12 @@ function parseCreatedAt(d) {
   if (/^\d{4}$/.test(ca)) {
     return new Date(ca + '-01-01T00:00:00Z');
   }
-  return new Date(ca.replace(' ', 'T') + (ca.includes('+') ? '' : 'Z'));
+  // Only append 'Z' (assume UTC) when the string carries NO timezone already.
+  // Previously `ca.includes('+')` missed trailing-'Z' and negative '-05:00' offsets,
+  // producing "...ZZ" / "...-05:00Z" → Invalid Date → NaN bucket keys → broken list view.
+  const iso = ca.replace(' ', 'T');
+  const hasZone = /[zZ]$|[+-]\d{2}:?\d{2}$/.test(iso);
+  return new Date(iso + (hasZone ? '' : 'Z'));
 }
 
 function getWeekKey(dt) {
@@ -495,9 +1692,10 @@ function formatGroupLabel(type, key) {
     const dateObj = new Date(ky, km - 1, kd);
     const wd = WEEKDAYS()[dateObj.getDay()];
 
-    if (key === todayStr) return `📅 ${t('today')} · ${key} ${wd}`;
-    if (key === yesterdayStr) return `📅 ${t('yesterday')} · ${key} ${wd}`;
-    return `📅 ${key} ${wd}`;
+    const longDate = dateObj.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+    if (key === todayStr) return `${t('today')} — ${longDate}`;
+    if (key === yesterdayStr) return `${t('yesterday')} — ${longDate}`;
+    return longDate;
   }
   if (type === 'daily') {
     const [y, w] = key.split('-W');
@@ -526,7 +1724,7 @@ function extractExcerpt(content) {
     if (inImportant && (trimmed.startsWith('📰') || trimmed.startsWith('🔖') || trimmed.startsWith('🔍') || trimmed.startsWith('👀') || trimmed.startsWith('🧹') || trimmed.startsWith('💤'))) break;
     if (inImportant && trimmed.startsWith('•')) {
       let clean = trimmed.replace(/^•\s*/, '').replace(/\*\*/g, '').replace(/https?:\/\/\S+/g, '').replace(/（来源[^）]*）/g, '').trim();
-      if (clean.length > 8) highlights.push(clean.length > 80 ? clean.slice(0, 80) + '…' : clean);
+      if (clean.length > 8) highlights.push(clean.length > 120 ? clean.slice(0, 120) + '…' : clean);
       if (highlights.length >= 2) break;
     }
   }
@@ -539,6 +1737,468 @@ function extractExcerpt(content) {
     if (clean.length > 15) return clean.length > 120 ? clean.slice(0, 120) + '…' : clean;
   }
   return '';
+}
+
+// ── Newspaper helpers ─────────────────────────────────────────────
+function safeJsonParse(s) { try { return JSON.parse(s); } catch { return null; } }
+function truncate(s, n) { if (!s) return ''; return s.length > n ? s.slice(0, n).replace(/[,;:。、]\s*\S*$/, '') + '…' : s; }
+function escHtml(s) { return String(s || '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
+
+// ── URL + JS-string safety (digest content is untrusted: LLM-generated from external feeds) ──
+// safeUrl(): scheme allowlist for any URL that lands in an href, so `javascript:`/`data:`
+// links from digest content can't execute in-origin.
+const SAFE_URL_SCHEMES = { 'http:': 1, 'https:': 1, 'mailto:': 1 };
+function safeUrl(u) {
+  u = String(u == null ? '' : u).trim();
+  if (!u) return '#';
+  try {
+    // Resolve against the page origin so protocol-relative ("//host") and relative
+    // paths normalize to a real scheme we can check. Allowlist — never denylist —
+    // so javascript:/data:/vbscript: and any novel scheme fall through to '#'.
+    const parsed = new URL(u, location.origin);
+    return SAFE_URL_SCHEMES[parsed.protocol] ? u : '#';
+  } catch {
+    return '#'; // malformed → inert link, never throw mid-render
+  }
+}
+// jsStr(): make an untrusted value safe inside a single-quoted JS string that itself sits
+// inside a double-quoted HTML attribute (e.g. onclick="doMark('<here>', this)"). The HTML
+// parser decodes entities BEFORE the JS engine runs, so the single-quote must be JS-escaped
+// (backslash, survives HTML decode) while the double-quote is entity-encoded (so it can't
+// close the attribute). This is the fix for the no-click onclick-breakout XSS.
+function jsStr(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;')
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+// ── Markdown renderer (for digests whose content isn't JSON-shaped) ──
+function mdEscape(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
+function mdInline(s) {
+  let r = mdEscape(s);
+  // Explicit [text](url) — wrap first so labels can stay readable
+  // url is already mdEscape'd here, so scheme-validate only (re-escaping would double-encode &).
+  r = r.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (m, txt, url) => `<a href="${safeUrl(url)}" target="_blank" rel="noopener">${txt}</a>`);
+  // **bold**
+  r = r.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
+  // *italic* — guard so it doesn't eat already-handled bold leftovers
+  r = r.replace(/(^|[\s(])\*([^*\n]+?)\*(?=[\s).,;:!?]|$)/g, '$1<em>$2</em>');
+  // Bare http(s) URL — skip when already inside an href attribute
+  r = r.replace(/(^|[^"'>])(https?:\/\/[^\s<)]+)/g, '$1<a href="$2" target="_blank" rel="noopener">$2</a>');
+  return r;
+}
+function mdIsSourceLine(line) {
+  const stripped = line.replace(/\[[^\]]+\]\([^)]+\)/g, '').replace(/[·•|—\-,\s]/g, '').trim();
+  return stripped === '' && /\[[^\]]+\]\([^)]+\)/.test(line);
+}
+// The 4h cadence arrives as one continuous string with NO line breaks between
+// markdown markers. Daily/weekly are properly newlined. Normalize both into a
+// canonical form the line-based parser can handle.
+//
+// BOLD pattern fragment: matches a `**...**` span. The first content character
+// MUST be non-space, non-asterisk — this distinguishes an OPENING `**` from a
+// CLOSING `**`. Without this guard the non-greedy match would bridge a closing
+// `**` with the next opening one, e.g. `**Bold** body **Next**` would match
+// as one span (`**Bold** body **`) and shred the markdown.
+// Single asterisks (italic markers) are allowed inside via `*(?!*)`.
+const _MD_BOLD = '\\*\\*[^*\\s\\n](?:[^*\\n]|\\*(?!\\*))*?\\*\\*';
+function mdNormalize(text) {
+  let r = String(text || '').replace(/\r\n/g, '\n');
+
+  // 0. Triple asterisk is ambiguous: usually `*italic-close*` + `**bold-close**`.
+  //    Split so each side parses cleanly.
+  r = r.replace(/\*\*\*/g, '* **');
+
+  // 1. H1 directly followed by bold dateline: split (then we strip both at step 10).
+  r = r.replace(/(^|\n)(#\s+[^\n*]+?)(\*\*)/g, '$1$2\n$3');
+
+  // 2. Bold span directly followed by `## Section` → break the section onto its own line.
+  r = r.replace(new RegExp('(' + _MD_BOLD + ')(##+\\s)', 'g'), '$1\n\n$2');
+
+  // 3a. `## Section**Headline**` → break between the section title and a glued-on bold headline.
+  //     [^\n*-] also excludes `-` so the section name stops cleanly before run-on bullets.
+  r = r.replace(/(##+\s+[^\n*-]+?)(\*\*[A-Z])/g, '$1\n\n$2');
+  // 3b. `## Section- ` directly followed by content (bullet glued onto heading) →
+  //     break the bullet off, otherwise the section heading ends with a stray "-"
+  //     AND the first list item loses its bullet. Common in 4h "## Venues and Festivals- **The White Hotel..." pattern.
+  r = r.replace(/(##+\s+[^\n*-]+?)\s*-\s+(?=\S)/g, '$1\n- ');
+
+  // 4. `(Source)**NextHeadline**` → between citation and next story.
+  r = r.replace(new RegExp('(\\))\\s*(' + _MD_BOLD + ')', 'g'), '$1\n\n$2');
+
+  // 5. `.!?` directly followed by `**bold**` → end-of-sentence boundary.
+  r = r.replace(new RegExp('([.!?])\\s*(' + _MD_BOLD + ')', 'g'), '$1\n\n$2');
+
+  // 6. `**Headline**Capital` → run-on body text immediately after a bold span.
+  //    This is the key 4h pattern: headlines stuck against their own bodies.
+  r = r.replace(new RegExp('(' + _MD_BOLD + ')([A-Z])', 'g'), '$1\n$2');
+
+  // 7. `**Subhead**- Item` → break list off the subhead.
+  r = r.replace(new RegExp('(' + _MD_BOLD + ')\\s*-\\s+', 'g'), '$1\n- ');
+
+  // 8. `)- Item` or `]- Item` → list bullets stuck after source citations.
+  r = r.replace(/([)\]])\s*-\s+/g, '$1\n- ');
+
+  // 9. `## Header` stuck mid-line anywhere else (catch-all).
+  r = r.replace(/([^\n])(##+\s)/g, '$1\n\n$2');
+
+  // 10. Strip the leading H1 + bold dateline. The masthead already conveys the
+  //     publication name and date; repeating them here is redundant. We emit a
+  //     cleaner cadence-meta line in loadDigest() instead.
+  r = r.replace(/^\s*#\s+[^\n]*\n+\s*\*\*[^*\n]+\*\*\s*\n+/, '');
+  r = r.replace(/^\s*#\s+[^\n]*\n+/, '');
+
+  return r;
+}
+// Pattern for a standalone `**bold**` line whose content may include single asterisks.
+const _MD_BOLD_LINE = /^\*\*((?:[^*\n]|\*(?!\*))+)\*\*$/;
+// Newsletter signup — stubbed via /api/feedback for now (delivers via existing
+// Telegram-fed feedback pipeline). Replace with a dedicated CF Worker + KV +
+// @discoopsbot endpoint when ready (see standing forms preference).
+async function handleNewsletter(e) {
+  e.preventDefault();
+  const form = e.target;
+  const input = form.querySelector('input[name="email"]');
+  const btn = form.querySelector('button');
+  const email = (input.value || '').trim();
+  if (!email) return;
+  const orig = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '…';
+  try {
+    const r = await fetch(`${API}/feedback`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ message: '[NEWSLETTER SIGNUP] ' + email, email })
+    });
+    if (r.ok) {
+      showToast('Subscribed.');
+      input.value = '';
+    } else {
+      showToast('Subscribe failed — try again');
+    }
+  } catch (err) {
+    showToast('Subscribe failed: ' + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = orig;
+  }
+}
+
+function mdRender(text) {
+  const lines = mdNormalize(text).split('\n');
+  // Helper: peek to the next non-blank line so we can choose subhead vs headline.
+  const nextNonBlank = (i) => {
+    for (let j = i + 1; j < lines.length; j++) {
+      const tn = lines[j].trim();
+      if (tn) return tn;
+    }
+    return '';
+  };
+  const out = [];
+  let inList = false, para = [];
+  const flushPara = () => { if (para.length) { out.push(`<p>${mdInline(para.join(' '))}</p>`); para = []; } };
+  const closeList = () => { if (inList) { out.push('</ul>'); inList = false; } };
+  for (let i = 0; i < lines.length; i++) {
+    const t = lines[i].replace(/\s+$/, '').trim();
+    if (!t) { flushPara(); closeList(); continue; }
+    if (t === '---' || t === '___') { flushPara(); closeList(); out.push('<hr>'); continue; }
+    let m;
+    if ((m = t.match(/^###\s+(.+)$/))) { flushPara(); closeList(); out.push(`<h3>${mdInline(m[1])}</h3>`); continue; }
+    if ((m = t.match(/^##\s+(.+)$/)))  { flushPara(); closeList(); out.push(`<h2>${mdInline(m[1])}</h2>`); continue; }
+    if ((m = t.match(/^#\s+(.+)$/)))   { flushPara(); closeList(); out.push(`<h1>${mdInline(m[1])}</h1>`); continue; }
+    // **N. Headline** on its own line → numbered story headline
+    if (/^\*\*\d+\.\s.+\*\*$/.test(t)) {
+      flushPara(); closeList();
+      out.push(`<h3 class="md-story-headline">${mdInline(t.replace(/^\*\*/, '').replace(/\*\*$/, ''))}</h3>`);
+      continue;
+    }
+    // Standalone **Bold** line: peek ahead to decide whether it's a story
+    // headline (followed by body text) or a subhead (followed by bullet list).
+    if ((m = t.match(_MD_BOLD_LINE))) {
+      flushPara(); closeList();
+      const inner = m[1];
+      const next = nextNonBlank(i);
+      const isSubhead = /^[-•]\s/.test(next);
+      if (isSubhead) {
+        out.push(`<h4 class="md-subhead">${mdInline(inner)}</h4>`);
+      } else {
+        out.push(`<h3 class="md-story-headline">${mdInline(inner)}</h3>`);
+      }
+      continue;
+    }
+    if ((m = t.match(/^[-•]\s+(.+)$/))) {
+      flushPara();
+      if (!inList) { out.push('<ul>'); inList = true; }
+      out.push(`<li>${mdInline(m[1])}</li>`);
+      continue;
+    }
+    if (mdIsSourceLine(t)) {
+      flushPara(); closeList();
+      out.push(`<p class="md-sources">${mdInline(t)}</p>`);
+      continue;
+    }
+    // Pure italic line → italicized paragraph (e.g. *Album Name*)
+    if (/^\*[^*\n]+\*$/.test(t)) {
+      flushPara(); closeList();
+      out.push(`<p><em>${mdInline(t.replace(/^\*/, '').replace(/\*$/, ''))}</em></p>`);
+      continue;
+    }
+    para.push(t);
+  }
+  flushPara(); closeList();
+  return out.join('\n');
+}
+// Format any incoming time string to "YYYY-MM-DD HH:MM UTC".
+// Handles ISO 8601 ("2026-05-12T21:17:00Z", "2026-05-12T11:08:10.929293+00:00"),
+// space-separated ("2026-05-11 15:49:09+00:00"), or pre-formatted ("2026-05-12 21:17 UTC").
+function fmtTime(raw) {
+  if (!raw) return '';
+  const s = String(raw);
+  // ISO 8601 / space-separated: "2026-05-12T21:17:00Z" or "2026-05-11 15:49:09+00:00"
+  const iso = s.match(/^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2})/);
+  if (iso) return `${iso[1]} ${iso[2]} UTC`;
+  // RFC 2822 (RSS pubDate): "Fri, 08 May 2026 22:39:45 +0000"
+  const d = new Date(s);
+  if (!isNaN(d.getTime())) {
+    const yy = d.getUTCFullYear();
+    const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+    const dd = String(d.getUTCDate()).padStart(2, '0');
+    const hh = String(d.getUTCHours()).padStart(2, '0');
+    const mi = String(d.getUTCMinutes()).padStart(2, '0');
+    return `${yy}-${mm}-${dd} ${hh}:${mi} UTC`;
+  }
+  return s;
+}
+
+// 6 editorial slots for the 4h cadence — bucketed by local hour.
+function editionLabel(dt) {
+  const h = dt.getHours();
+  if (h < 4) return 'Late Edition';
+  if (h < 8) return 'Pre-Dawn Wire';
+  if (h < 12) return 'Morning Bulletin';
+  if (h < 16) return 'Midday Edition';
+  if (h < 20) return 'Afternoon Edition';
+  return 'Evening Bulletin';
+}
+
+// Normalize across schema drift: sections.top_stories | sections.topStories | root top_stories | root topStories
+function normalizeDigest(parsed) {
+  if (!parsed || typeof parsed !== 'object') return null;
+  const src = parsed.sections && typeof parsed.sections === 'object' ? parsed.sections : parsed;
+  const pick = (...keys) => { for (const k of keys) if (Array.isArray(src[k])) return src[k]; return []; };
+  const normItem = (it) => ({
+    title: it.title || it.headline || '',
+    source: it.source || it.publisher || '',
+    url: it.url || it.link || '',
+    time: it.time || it.published || it.publishedAt || '',
+    summary: it.summary || it.description || it.excerpt || '',
+    city: it.city || '',
+  });
+  return {
+    meta: {
+      period: parsed.period || parsed.window || (parsed.window_start && parsed.window_end ? `${parsed.window_start} → ${parsed.window_end}` : ''),
+      timestamp: parsed.timestamp || parsed.generated_at || parsed.generatedAt || '',
+      sources: parsed.sources || parsed.sources_fetched || parsed.sources_ok || '',
+    },
+    sections: {
+      topStories: pick('top_stories', 'topStories', 'top').map(normItem),
+      byCity: pick('by_city', 'byCity', 'cities').map(normItem),
+      indie: pick('indie', 'underground').map(normItem),
+      festivals: pick('festivals', 'live').map(normItem),
+      trending: pick('trending', 'topics').map(normItem),
+      quickHits: pick('quick_hits', 'quickHits', 'briefs').map(normItem),
+    },
+  };
+}
+
+// Pull lead story (headline + summary) from a digest's content string.
+// Works on full content (JSON.parse path) and on truncated list excerpts (regex path).
+function extractHeadlineDek(content) {
+  if (!content) return { headline: '', dek: '' };
+  const parsed = safeJsonParse(content);
+  if (parsed) {
+    const norm = normalizeDigest(parsed);
+    const top = (norm.sections.topStories[0] || norm.sections.indie[0] || norm.sections.trending[0] || norm.sections.byCity[0]);
+    if (top && top.title) return { headline: truncate(top.title, 110), dek: truncate(top.summary, 180) };
+  }
+  // Regex fallback on truncated excerpts that don't parse
+  const m = content.match(/"title"\s*:\s*"((?:[^"\\]|\\.)+)"/);
+  if (m) {
+    const t = m[1].replace(/\\"/g, '"').replace(/\\u([0-9a-fA-F]{4})/g, (_, h) => String.fromCharCode(parseInt(h, 16))).replace(/\\n/g, ' ').replace(/\\\\/g, '\\');
+    return { headline: truncate(t, 110), dek: '' };
+  }
+  return { headline: '', dek: '' };
+}
+
+// Canonicalize a URL so query strings and trailing slashes don't fragment dedup.
+// Hosts whose resource identity lives in the query string (e.g. youtube.com/watch?v=ID).
+// For these, dropping the query would collapse distinct videos/tracks into one dedup key.
+const QUERY_KEYED_HOSTS = { 'youtube.com': 'v', 'www.youtube.com': 'v', 'm.youtube.com': 'v' };
+function canonicalUrl(u) {
+  if (!u) return '';
+  try {
+    const url = new URL(u);
+    let base = (url.origin + url.pathname).replace(/\/+$/, '').toLowerCase();
+    const idParam = QUERY_KEYED_HOSTS[url.hostname.toLowerCase()];
+    const idVal = idParam && url.searchParams.get(idParam);
+    if (idVal) base += '?' + idParam + '=' + idVal.toLowerCase();
+    return base;
+  } catch {
+    return String(u).split('?')[0].replace(/\/+$/, '').toLowerCase();
+  }
+}
+
+// Bucket key for collapsing multiple digest re-runs into one editorial slot.
+// 4h → date + 4h-window index; daily → date; weekly → ISO week; monthly → YYYY-MM.
+function digestBucketKey(d, type) {
+  const dt = parseCreatedAt(d);
+  const y = dt.getFullYear();
+  const m = String(dt.getMonth() + 1).padStart(2, '0');
+  const day = String(dt.getDate()).padStart(2, '0');
+  if (type === '4h') {
+    const slot = Math.floor(dt.getHours() / 4); // 0..5
+    return `${y}-${m}-${day}-${slot}`;
+  }
+  if (type === 'daily') return `${y}-${m}-${day}`;
+  if (type === 'weekly') return getWeekKey(dt);
+  if (type === 'monthly') return `${y}-${m}`;
+  return `${y}-${m}-${day}`;
+}
+
+// Collapse digests sharing a bucket into one card-record with all IDs.
+function bucketDigests(digests, type) {
+  const buckets = new Map();
+  for (const d of digests) {
+    const k = digestBucketKey(d, type);
+    if (!buckets.has(k)) buckets.set(k, []);
+    buckets.get(k).push(d);
+  }
+  const cards = [];
+  for (const [k, group] of buckets) {
+    // Newest first (highest id wins for headline preview).
+    // Coerce to Number to match loadDigest()'s sort and avoid NaN on non-numeric ids.
+    group.sort((a, b) => Number(b.id) - Number(a.id));
+    const latest = group[0];
+    cards.push({
+      bucketKey: k,
+      ids: group.map(g => g.id),
+      latest,
+      runCount: group.length,
+      _dt: parseCreatedAt(latest),
+    });
+  }
+  return cards;
+}
+
+// Merge normalized digests (oldest → newest): dedup stories by URL keeping latest version,
+// then sort by published time DESC inside each section.
+function mergeNormalizedDigests(normList) {
+  if (!normList.length) return null;
+  const out = { meta: normList[normList.length - 1].meta, sections: {} };
+  const sectionKeys = ['topStories', 'byCity', 'indie', 'festivals', 'trending', 'quickHits'];
+  for (const key of sectionKeys) {
+    const map = new Map();
+    for (const n of normList) {
+      for (const item of (n.sections[key] || [])) {
+        const k = canonicalUrl(item.url) || String(item.title || '').toLowerCase();
+        if (!k) continue;
+        map.set(k, item); // last write wins (latest digest)
+      }
+    }
+    const arr = [...map.values()].sort((a, b) => {
+      const ta = fmtTime(a.time) || '';
+      const tb = fmtTime(b.time) || '';
+      return tb.localeCompare(ta);
+    });
+    out.sections[key] = arr;
+  }
+  return out;
+}
+
+// Render structured digest content as a newspaper layout.
+const SECTION_TITLES = {
+  topStories: 'Top Stories',
+  byCity: 'By City',
+  indie: 'Indie & Underground',
+  festivals: 'Festivals & Live',
+  trending: 'Trending',
+  quickHits: 'Quick Hits',
+};
+function renderStory(story, opts = {}) {
+  const titleHtml = story.url
+    ? `<a href="${escHtml(safeUrl(story.url))}" target="_blank" rel="noopener">${escHtml(story.title)}</a>`
+    : escHtml(story.title);
+  const bylineBits = [];
+  if (story.source) bylineBits.push(escHtml(story.source));
+  if (story.city) bylineBits.push(escHtml(story.city));
+  if (story.time) bylineBits.push(escHtml(fmtTime(story.time)));
+  const byline = bylineBits.length ? `<div class="story-byline">${bylineBits.join(' · ')}</div>` : '';
+  const summary = story.summary ? `<div class="story-summary">${escHtml(story.summary)}</div>` : '';
+  let markBtn = '';
+  if (story.url && /x\.com\//.test(story.url)) {
+    const clean = story.url.split('?')[0];
+    const isMarked = typeof markedUrls !== 'undefined' && markedUrls && markedUrls.has && markedUrls.has(clean);
+    const markId = isMarked ? markedUrls.get(clean) : null;
+    if (currentUser) {
+      markBtn = isMarked
+        ? ` <span class="mark-btn marked" onclick="doUnmark('${jsStr(clean)}', ${markId}, this)">${t('marked')}</span>`
+        : ` <span class="mark-btn" onclick="doMark('${jsStr(clean)}', this)">${t('mark')}</span>`;
+    } else {
+      markBtn = ` <span class="mark-btn disabled" onclick="showToast('${t('loginToMark')}')">${t('mark')}</span>`;
+    }
+  }
+  return `<div class="story">
+    <div class="story-headline">${titleHtml}${markBtn}</div>
+    ${byline}
+    ${summary}
+  </div>`;
+}
+function renderQuickHit(item) {
+  const t = item.title || '';
+  const link = item.url ? `<a href="${escHtml(safeUrl(item.url))}" target="_blank" rel="noopener">${escHtml(t)}</a>` : escHtml(t);
+  const src = item.source ? ` <span class="quick-hit-source">— ${escHtml(item.source)}</span>` : '';
+  return `<li class="quick-hit">${link}${src}</li>`;
+}
+function renderDigestNewspaper(digest, parsedOrNorm, opts = {}) {
+  // Accept either a parsed JSON object (with .sections / topStories at root)
+  // or a pre-normalized {meta, sections} object (from mergeNormalizedDigests).
+  const norm = (parsedOrNorm && parsedOrNorm.sections && !Array.isArray(parsedOrNorm.sections) && parsedOrNorm.meta)
+    ? parsedOrNorm
+    : normalizeDigest(parsedOrNorm);
+  if (!norm) return '';
+  const dt = parseCreatedAt(digest);
+  const editionName = digest.type === '4h' ? editionLabel(dt) : null;
+  const longDate = dt.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+  const metaBits = [];
+  if (editionName) metaBits.push(editionName);
+  metaBits.push(longDate);
+  if (norm.meta.period) metaBits.push(escHtml(norm.meta.period));
+  if (norm.meta.sources) metaBits.push(`${norm.meta.sources} sources`);
+  if (opts.runCount && opts.runCount > 1) {
+    const updatedThrough = dt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+    metaBits.push(`Updated through ${updatedThrough} · ${opts.runCount} runs merged`);
+  }
+  let html = `<div class="digest-news">`;
+  html += `<div class="news-meta">${metaBits.join(' · ')}</div>`;
+  const order = ['topStories', 'byCity', 'indie', 'festivals', 'trending', 'quickHits'];
+  for (const key of order) {
+    const items = norm.sections[key];
+    if (!items || !items.length) continue;
+    html += `<div class="section-head">${SECTION_TITLES[key]}</div>`;
+    if (key === 'quickHits') {
+      html += `<ul class="quick-hits-list">${items.map(renderQuickHit).join('')}</ul>`;
+    } else {
+      html += items.map(s => renderStory(s)).join('');
+    }
+  }
+  html += `</div>`;
+  return html;
 }
 
 let loadedDigests = [];
@@ -586,41 +2246,54 @@ async function renderList(append = false) {
 
     if (!loadedDigests.length) { list.innerHTML = `<div class="empty">${t('noData')}</div>`; return; }
 
-    const { groups, order } = groupDigests(loadedDigests);
+    // Collapse re-runs into one card per cadence bucket; multiple digest IDs ride along.
+    const bucketedCards = bucketDigests(loadedDigests, currentType);
+    // Re-group bucketed cards by date-group header (uses the latest digest's date)
+    const { groups, order } = groupDigests(bucketedCards.map(c => ({ ...c.latest, _dt: c._dt, _card: c })));
     let html = '';
     for (const gk of order) {
       const items = groups[gk];
       const label = formatGroupLabel(currentType, gk);
       html += `<div class="date-group"><div class="date-group-header">${label} <span class="count">${items.length} ${t('articles')}</span></div><div class="date-group-items">`;
       for (const d of items) {
+        const card = d._card;
         const dt = d._dt;
-        const time = dt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
-        let title, badge;
+        const { headline, dek } = extractHeadlineDek(card.latest.excerpt || card.latest.content);
+        let badge, fallback;
         if (currentType === '4h') {
-          title = `${time}`; badge = `<span class="time-badge">${time}</span>`;
+          const ed = editionLabel(dt);
+          fallback = ed;
+          badge = `<span class="cadence-badge">${ed}</span>`;
         } else if (currentType === 'daily') {
-          const dateStr = dt.toISOString().slice(0, 10);
-          const wd = WEEKDAYS()[dt.getDay()];
-          title = `${dateStr} ${wd}`; badge = '';
+          const wd = dt.toLocaleDateString('en-US', { weekday: 'long' });
+          fallback = `${wd}'s Edition`;
+          badge = `<span class="cadence-badge">${wd}</span>`;
         } else if (currentType === 'weekly') {
           const wk = getWeekKey(dt);
-          title = `Week ${parseInt(wk.split('-W')[1])}`; badge = '';
+          const issue = parseInt(wk.split('-W')[1]);
+          fallback = `Issue ${issue}`;
+          badge = `<span class="cadence-badge">Issue ${issue}</span>`;
         } else {
-          const mon = dt.toISOString().slice(0, 7);
           const monthName = dt.toLocaleString('en-US', { month: 'long' });
-          title = `${monthName}`; badge = '';
+          fallback = `${monthName} Almanac`;
+          badge = `<span class="cadence-badge">${monthName}</span>`;
         }
-        const excerpt = extractExcerpt(d.content);
-        html += `<div class="digest-card" data-id="${d.id}"><div class="card-body"><div class="title">${title}</div>${excerpt ? `<div class="excerpt">${excerpt}</div>` : ''}</div>${badge}</div>`;
+        const title = headline || fallback;
+        const showBadge = !!headline;
+        const updatesNote = card.runCount > 1
+          ? `<div class="updates-note">${card.runCount} updates merged</div>`
+          : '';
+        const idsAttr = card.ids.join(',');
+        html += `<div class="digest-card" data-ids="${idsAttr}"><div class="card-body"><div class="title headline">${title}</div>${dek ? `<div class="excerpt dek">${dek}</div>` : ''}${updatesNote}</div>${showBadge ? badge : ''}</div>`;
       }
       html += `</div></div>`;
     }
     if (!allLoaded) {
-      html += `<div id="load-more" style="text-align:center;padding:16px;"><button onclick="loadMore()" style="padding:10px 32px;background:#2a2a2a;border:1px solid #444;border-radius:8px;color:#aaa;cursor:pointer;font-size:14px;transition:all .2s;">${t('loadMore')}</button></div>`;
+      html += `<div id="load-more" style="text-align:center;padding:16px;"><button class="load-more-btn" onclick="loadMore()">${t('loadMore')}</button></div>`;
     }
     list.innerHTML = html;
     list.querySelectorAll('.digest-card').forEach(card => {
-      card.onclick = () => loadDigest(card.dataset.id);
+      card.onclick = () => loadDigest(card.dataset.ids);
     });
   } catch (e) {
     if (!append) list.innerHTML = `<div class="empty">${t('loadFail')}: ${e.message}</div>`;
@@ -635,39 +2308,105 @@ async function loadMore() {
   await renderList(true);
 }
 
-async function loadDigest(id) {
+async function loadDigest(idOrIds) {
   const list = document.getElementById('list');
   const viewer = document.getElementById('viewer');
   list.innerHTML = '';
+  viewer.classList.remove('has-news', 'has-markdown');
+  // Accept either a single id or a comma-separated list of ids (re-run merge).
+  const ids = String(idOrIds).split(',').map(s => s.trim()).filter(Boolean);
   try {
-    const resp = await fetch(`${API}/digests/${id}`);
-    const d = await resp.json();
-    let text = d.content;
-    // Hide private sections for non-logged-in users
-    if (!currentUser) {
-      text = text.replace(/🧹\s*建议取关[\s\S]*?(?=\n(?:💤|🔍|👀|📰|🔖|🔥|—|$))/g, '');
-      text = text.replace(/🔖\s*Bookmarks\s*精选[\s\S]*?(?=\n(?:💤|🔍|👀|📰|🧹|🔥|—|$))/g, '');
-    }
+    const fetched = await Promise.all(ids.map(id =>
+      fetch(`${API}/digests/${id}`).then(r => r.ok ? r.json() : null).catch(() => null)
+    ));
+    const digests = fetched.filter(Boolean);
+    if (!digests.length) throw new Error('no digests loaded');
     await loadMarkedUrls();
 
-    text = text.replace(/(https?:\/\/x\.com\/[^\s<)]+)/g, (match) => {
-      const clean = match.split('?')[0];
-      const isMarked = markedUrls.has(clean);
-      const markId = markedUrls.get(clean);
-      let markHtml;
-      if (currentUser) {
-        markHtml = isMarked
-          ? `<span class="mark-btn marked" onclick="doUnmark('${clean}', ${markId}, this)">${t('marked')}</span>`
-          : `<span class="mark-btn" onclick="doMark('${clean}', this)">${t('mark')}</span>`;
-      } else {
-        markHtml = `<span class="mark-btn disabled" onclick="showToast('${t('loginToMark')}')" title="${t('loginToMark')}">${t('mark')}</span>`;
-      }
-      return `<a href="${match}" target="_blank">${match}</a>${markHtml}`;
-    });
-    text = text.replace(/(https?:\/\/(?!x\.com)[^\s<)]+)/g, '<a href="$1" target="_blank">$1</a>');
+    // Sort oldest → newest by id so "last write wins" gives us the latest version per URL.
+    digests.sort((a, b) => Number(a.id) - Number(b.id));
+    const latest = digests[digests.length - 1];
 
-    viewer.innerHTML = `<div class="back-btn" onclick="renderList()">${t('back')}</div>\n${text}`;
+    // Parse + normalize each. Anything that fails parse falls back to plain-text path below.
+    const parsedAll = digests.map(d => ({ d, parsed: safeJsonParse(d.content) }));
+    const parseable = parsedAll.filter(p => p.parsed);
+    let body;
+    if (parseable.length) {
+      const normList = parseable.map(p => normalizeDigest(p.parsed));
+      const merged = mergeNormalizedDigests(normList);
+      body = renderDigestNewspaper(latest, merged, { runCount: digests.length });
+      viewer.classList.add('has-news');
+    } else {
+      // Markdown path: digests served as Markdown (not JSON) get rendered with
+      // editorial typography. Anon-only sections are stripped first, then the
+      // markdown is converted to HTML, then mark buttons are attached to x.com links.
+      const d = latest;
+      let text = d.content || '';
+      if (!currentUser) {
+        text = text.replace(/🧹\s*建议取关[\s\S]*?(?=\n(?:💤|🔍|👀|📰|🔖|🔥|—|$))/g, '');
+        text = text.replace(/🔖\s*Bookmarks\s*精选[\s\S]*?(?=\n(?:💤|🔍|👀|📰|🧹|🔥|—|$))/g, '');
+      }
+      let html = mdRender(text);
+      html = html.replace(/<a href="(https?:\/\/x\.com\/[^"]+)"[^>]*>([^<]+)<\/a>/g, (m, url) => {
+        const clean = url.split('?')[0];
+        const isMarked = markedUrls.has(clean);
+        const markId = markedUrls.get(clean);
+        let markHtml;
+        if (currentUser) {
+          markHtml = isMarked
+            ? `<span class="mark-btn marked" onclick="doUnmark('${jsStr(clean)}', ${markId}, this)">${t('marked')}</span>`
+            : `<span class="mark-btn" onclick="doMark('${jsStr(clean)}', this)">${t('mark')}</span>`;
+        } else {
+          markHtml = `<span class="mark-btn disabled" onclick="showToast('${t('loginToMark')}')" title="${t('loginToMark')}">${t('mark')}</span>`;
+        }
+        return m + markHtml;
+      });
+      // Compose a richer editorial header that replaces the redundant H1 +
+      // bold dateline we stripped from the source markdown. Full date+time+curator
+      // restored, set in big Fraunces italic. Hero image lands beneath.
+      const mdDt = parseCreatedAt(latest);
+      let editionName;
+      if (latest.type === '4h') editionName = editionLabel(mdDt);
+      else if (latest.type === 'daily') editionName = 'Daily Edition';
+      else if (latest.type === 'weekly') editionName = 'Weekly Review';
+      else if (latest.type === 'monthly') editionName = 'Monthly Almanac';
+      else editionName = 'Edition';
+      const longDate = mdDt.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+      const timeStr  = mdDt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'UTC' }) + ' UTC';
+      const datelineBits = [longDate, timeStr];
+      if (digests.length > 1) datelineBits.push(`${digests.length} editions merged`);
+      datelineBits.push(`Curated by <a href="https://sliver.network/" target="_blank" rel="noopener">Sliver</a>`);
+      // Hero image — Picsum seed varies by cadence so each type gets a consistent hero.
+      // 4h rotates daily for visual variety across the day's editions.
+      let heroSeed = 'sliver-' + latest.type;
+      if (latest.type === '4h') heroSeed += '-' + (mdDt.getUTCDate() % 5);
+      const heroUrl = `https://picsum.photos/seed/${encodeURIComponent(heroSeed)}/1600/440`;
+      const headerHtml = `
+        <div class="md-editorial-header">
+          <div class="md-edition-name">${escHtml(editionName)}</div>
+          <div class="md-date-line">${datelineBits.join(' · ')}</div>
+        </div>
+        <figure class="md-hero">
+          <img src="${heroUrl}" alt="" loading="lazy">
+          <figcaption>Photograph by Unsplash · selected for ${escHtml(editionName)}</figcaption>
+        </figure>`;
+      const newsletterHtml = `
+        <aside class="newsletter-cta">
+          <div class="nl-headline">Keep the wire on.</div>
+          <div class="nl-blurb">Free music + culture briefings, edited by <a href="https://sliver.network/" target="_blank" rel="noopener">Sliver</a>. No spam, ever.</div>
+          <form class="nl-form" onsubmit="handleNewsletter(event)">
+            <input type="email" name="email" placeholder="your@email.com" required autocomplete="email">
+            <button type="submit">Subscribe</button>
+          </form>
+          <div class="nl-fineprint">Unsubscribe any time. ${escHtml(editionName)} delivered weekly.</div>
+        </aside>`;
+      body = headerHtml + html + newsletterHtml;
+      viewer.classList.add('has-markdown');
+    }
+    viewer.innerHTML = `<div class="back-btn" onclick="renderList()">${t('back')}</div>\n${body}`;
     viewer.style.display = 'block';
+    viewer.scrollTop = 0;
+    viewer.scrollIntoView({ block: 'start', behavior: 'auto' });
   } catch (e) {
     viewer.innerHTML = `<div class="back-btn" onclick="renderList()">${t('back')}</div>\n<div class="empty">${t('cantLoad')}</div>`;
     viewer.style.display = 'block';
@@ -763,12 +2502,12 @@ function renderMarkCard(m) {
       <span class="mark-author">@${author}</span>
       <span class="mark-status ${isDone ? 'done' : 'pending'}">${isDone ? t('marksDone') : t('marksPending')}</span>
     </div>
-    ${summary ? `<div style="font-size:13px;color:#bbb;margin:6px 0;line-height:1.5;">${summary}</div>` : ''}
+    ${summary ? `<div style="font-size:13px;color:#bbb;margin:6px 0;line-height:1.5;">${escHtml(summary)}</div>` : ''}
     <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;">
-      <a href="${m.url}" target="_blank" style="font-size:12px;color:#555;text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:70%;">${m.url.replace('https://x.com/','x.com/')}</a>
+      <a href="${escHtml(safeUrl(m.url))}" target="_blank" style="font-size:12px;color:#555;text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:70%;">${escHtml(m.url.replace('https://x.com/','x.com/'))}</a>
       <div style="display:flex;gap:6px;align-items:center;">
-        <span style="font-size:11px;color:#555;background:#1a1a1a;padding:1px 6px;border-radius:3px;border:1px solid #282828;">${topic}</span>
-        <span class="mark-btn" onclick="doUnmark('${m.url}', ${m.id}, this)" style="font-size:11px;color:#e55;border-color:#e55;">✕</span>
+        <span style="font-size:11px;color:#555;background:#1a1a1a;padding:1px 6px;border-radius:3px;border:1px solid #282828;">${escHtml(topic)}</span>
+        <span class="mark-btn" onclick="doUnmark('${jsStr(m.url)}', ${m.id}, this)" style="font-size:11px;color:#e55;border-color:#e55;">✕</span>
       </div>
     </div>
   </div>`;
@@ -833,9 +2572,9 @@ async function renderSources() {
     // ── Not logged in: show read-only sources list ──
     if (!isLoggedIn) {
       html += `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-        <h2 style="margin:0;font-size:16px;color:#e0e0e0;">📡 ${lang==='zh'?'信息源':'Sources'} <span style="font-size:13px;color:#666;font-weight:400;">${sources.length} ${lang==='zh'?'个公开源':'public sources'}</span></h2>
+        <h2 class="sources-heading" style="margin:0;font-size:16px;">📡 ${lang==='zh'?'信息源':'Sources'} <span class="sources-count" style="font-size:13px;font-weight:400;">${sources.length} ${lang==='zh'?'个公开源':'public sources'}</span></h2>
       </div>`;
-      if (sources.length) html += `<div style="font-size:12px;color:#555;margin-bottom:16px;">${lang==='zh'?'以下是为本站 Digest 提供内容的信息源':'These are the sources powering this digest'}</div>`;
+      if (sources.length) html += `<div class="sources-blurb" style="font-size:12px;margin-bottom:16px;">${lang==='zh'?'以下是为本站 Digest 提供内容的信息源':'These are the sources powering this digest'}</div>`;
       html += '<div class="digest-list" style="gap:8px;">';
       for (const s of sources) {
         const icon = SOURCE_ICONS[s.type] || '📦';
@@ -844,7 +2583,7 @@ async function renderSources() {
             <span class="source-name" style="font-size:13px;">${icon} ${s.name}</span>
           </div>
           <div class="source-meta" style="font-size:11px;">
-            <span style="background:#1a1a2e;padding:1px 6px;border-radius:3px;color:#6cf;">${s.type}</span>
+            <span class="source-type-pill">${s.type}</span>
           </div>
         </div>`;
       }
@@ -1488,38 +3227,29 @@ applyLang();
 (async function() {
   const style = document.createElement('style');
   style.textContent = `
-    .fb-bubble { position:fixed; bottom:24px; right:24px; width:56px; height:56px; border-radius:50%; background:#40c040; border:none; cursor:pointer; font-size:24px; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 16px rgba(0,0,0,.3); z-index:1000; transition:transform .2s; }
-    .fb-bubble:hover { transform:scale(1.1); }
-    .fb-bubble .fb-dot { position:absolute; top:2px; right:2px; width:12px; height:12px; background:#f44; border-radius:50%; display:none; border:2px solid #0f0f0f; }
-    body.light .fb-bubble .fb-dot { border-color:#f5f5f5; }
-    .fb-panel { position:fixed; bottom:90px; right:24px; width:320px; height:400px; background:#1a1a1a; border:1px solid #333; border-radius:12px; z-index:1001; display:flex; flex-direction:column; box-shadow:0 8px 32px rgba(0,0,0,.4); transform:translateY(20px); opacity:0; pointer-events:none; transition:transform .25s ease, opacity .25s ease; }
+    .fb-bubble { position:fixed; bottom:24px; right:24px; width:48px; height:48px; border-radius:50%; background:var(--ink); color:var(--paper); border:none; cursor:pointer; font-size:20px; display:flex; align-items:center; justify-content:center; box-shadow:0 6px 22px rgba(20,17,13,.18); z-index:1000; transition:transform .15s, background .15s; }
+    .fb-bubble:hover { transform:scale(1.06); background:var(--accent); }
+    .fb-bubble .fb-dot { position:absolute; top:0; right:0; width:10px; height:10px; background:var(--accent); border-radius:50%; display:none; border:2px solid var(--paper); }
+    .fb-panel { position:fixed; bottom:84px; right:24px; width:340px; height:420px; background:var(--paper-elev); border:1px solid var(--hairline); border-radius:0; z-index:1001; display:flex; flex-direction:column; box-shadow:0 14px 44px rgba(20,17,13,.14); transform:translateY(20px); opacity:0; pointer-events:none; transition:transform .25s ease, opacity .25s ease; }
     .fb-panel.open { transform:translateY(0); opacity:1; pointer-events:auto; }
-    body.light .fb-panel { background:#fff; border-color:#ddd; box-shadow:0 8px 32px rgba(0,0,0,.1); }
-    .fb-header { padding:12px 16px; border-bottom:1px solid #333; display:flex; justify-content:space-between; align-items:center; font-size:14px; font-weight:600; }
-    body.light .fb-header { border-color:#ddd; color:#333; }
-    .fb-close { background:none; border:none; color:#888; cursor:pointer; font-size:18px; padding:0 4px; }
-    .fb-close:hover { color:#fff; }
-    body.light .fb-close:hover { color:#333; }
-    .fb-messages { flex:1; overflow-y:auto; padding:12px; display:flex; flex-direction:column; gap:8px; }
-    .fb-msg { max-width:85%; padding:8px 12px; border-radius:12px; font-size:13px; line-height:1.5; word-break:break-word; }
-    .fb-msg.user { align-self:flex-end; background:#2d5a2d; color:#e0e0e0; border-bottom-right-radius:4px; }
-    .fb-msg.reply { align-self:flex-start; background:#2a2a2a; color:#ccc; border-bottom-left-radius:4px; }
-    body.light .fb-msg.user { background:#d4edda; color:#333; }
-    body.light .fb-msg.reply { background:#e8e8e8; color:#333; }
-    .fb-msg .fb-time { font-size:10px; color:#666; margin-top:4px; }
-    .fb-empty { flex:1; display:flex; align-items:center; justify-content:center; padding:20px; text-align:center; color:#666; font-size:13px; line-height:1.6; }
-    .fb-input { padding:10px 12px; border-top:1px solid #333; display:flex; flex-direction:column; gap:6px; }
-    body.light .fb-input { border-color:#ddd; }
-    .fb-input textarea { width:100%; resize:none; background:#0f0f0f; border:1px solid #333; border-radius:8px; color:#e0e0e0; padding:8px 10px; font-size:13px; font-family:inherit; height:60px; }
-    body.light .fb-input textarea { background:#f5f5f5; border-color:#ccc; color:#333; }
-    .fb-input textarea:focus { outline:none; border-color:#40c040; }
-    .fb-input input { width:100%; background:#0f0f0f; border:1px solid #333; border-radius:6px; color:#e0e0e0; padding:6px 10px; font-size:12px; font-family:inherit; }
-    body.light .fb-input input { background:#f5f5f5; border-color:#ccc; color:#333; }
-    .fb-input input:focus { outline:none; border-color:#40c040; }
-    .fb-send { padding:6px 16px; background:#40c040; color:#fff; border:none; border-radius:6px; cursor:pointer; font-size:13px; font-weight:500; align-self:flex-end; transition:background .2s; }
-    .fb-send:hover { background:#35a535; }
+    .fb-header { padding:14px 18px; border-bottom:1px solid var(--hairline); display:flex; justify-content:space-between; align-items:center; font-family:var(--font-display); font-size:16px; font-weight:600; color:var(--ink); }
+    .fb-close { background:none; border:none; color:var(--ink-mute); cursor:pointer; font-size:20px; padding:0 4px; line-height:1; }
+    .fb-close:hover { color:var(--ink); }
+    .fb-messages { flex:1; overflow-y:auto; padding:14px; display:flex; flex-direction:column; gap:10px; }
+    .fb-msg { max-width:85%; padding:9px 12px; border-radius:0; font-family:var(--font-body); font-size:13.5px; line-height:1.55; word-break:break-word; }
+    .fb-msg.user { align-self:flex-end; background:var(--accent-tint); color:var(--ink); border-right:2px solid var(--accent); }
+    .fb-msg.reply { align-self:flex-start; background:transparent; color:var(--ink-soft); border-left:2px solid var(--ink); }
+    .fb-msg .fb-time { font-family:var(--font-mono); font-size:10px; color:var(--ink-faint); margin-top:4px; letter-spacing:.04em; }
+    .fb-empty { flex:1; display:flex; align-items:center; justify-content:center; padding:24px; text-align:center; font-family:var(--font-body); font-style:italic; color:var(--ink-mute); font-size:13.5px; line-height:1.6; }
+    .fb-input { padding:12px; border-top:1px solid var(--hairline); display:flex; flex-direction:column; gap:8px; }
+    .fb-input textarea { width:100%; resize:none; background:var(--paper); border:1px solid var(--hairline); border-radius:0; color:var(--ink); padding:8px 10px; font-family:var(--font-body); font-size:13.5px; height:64px; }
+    .fb-input textarea:focus { outline:none; border-color:var(--ink); }
+    .fb-input input { width:100%; background:var(--paper); border:1px solid var(--hairline); border-radius:0; color:var(--ink); padding:6px 10px; font-family:var(--font-body); font-size:12px; }
+    .fb-input input:focus { outline:none; border-color:var(--ink); }
+    .fb-send { padding:7px 18px; background:var(--ink); color:var(--paper); border:none; border-radius:0; cursor:pointer; font-family:var(--font-mono); font-size:11px; letter-spacing:.12em; text-transform:uppercase; align-self:flex-end; transition:background .15s; }
+    .fb-send:hover { background:var(--accent); }
     .fb-send:disabled { opacity:.5; cursor:default; }
-    @media (max-width:480px) { .fb-panel { left:12px; right:12px; width:auto; bottom:84px; height:60vh; } .fb-bubble { bottom:16px; right:16px; } }
+    @media (max-width:480px) { .fb-panel { left:12px; right:12px; width:auto; bottom:78px; height:60vh; } .fb-bubble { bottom:16px; right:16px; } }
   `;
   document.head.appendChild(style);
 
@@ -1639,13 +3369,18 @@ applyLang();
 
 // Detect /pack/:slug URL
 const packPageMatch = location.pathname.match(/\/pack\/([a-z0-9_-]+)/);
-checkAuth().then(() => {
+// Detect ?d=<id>[,<id>...] deep-link (used by emails / shared URLs)
+const deepLinkDigest = new URLSearchParams(location.search).get('d');
+checkAuth().then(async () => {
   if (packPageMatch) {
     renderPackDetailPage(packPageMatch[1]);
   } else if (currentPackSlug) {
     renderPackDetailPage(currentPackSlug);
   } else {
-    renderList();
+    await renderList();
+    if (deepLinkDigest && /^[\d,]+$/.test(deepLinkDigest)) {
+      loadDigest(deepLinkDigest);
+    }
   }
 });
 
