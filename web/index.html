@@ -1630,7 +1630,12 @@ function parseCreatedAt(d) {
   if (/^\d{4}$/.test(ca)) {
     return new Date(ca + '-01-01T00:00:00Z');
   }
-  return new Date(ca.replace(' ', 'T') + (ca.includes('+') ? '' : 'Z'));
+  // Only append 'Z' (assume UTC) when the string carries NO timezone already.
+  // Previously `ca.includes('+')` missed trailing-'Z' and negative '-05:00' offsets,
+  // producing "...ZZ" / "...-05:00Z" → Invalid Date → NaN bucket keys → broken list view.
+  const iso = ca.replace(' ', 'T');
+  const hasZone = /[zZ]$|[+-]\d{2}:?\d{2}$/.test(iso);
+  return new Date(iso + (hasZone ? '' : 'Z'));
 }
 
 function getWeekKey(dt) {
@@ -1739,12 +1744,45 @@ function safeJsonParse(s) { try { return JSON.parse(s); } catch { return null; }
 function truncate(s, n) { if (!s) return ''; return s.length > n ? s.slice(0, n).replace(/[,;:。、]\s*\S*$/, '') + '…' : s; }
 function escHtml(s) { return String(s || '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
 
+// ── URL + JS-string safety (digest content is untrusted: LLM-generated from external feeds) ──
+// safeUrl(): scheme allowlist for any URL that lands in an href, so `javascript:`/`data:`
+// links from digest content can't execute in-origin.
+const SAFE_URL_SCHEMES = { 'http:': 1, 'https:': 1, 'mailto:': 1 };
+function safeUrl(u) {
+  u = String(u == null ? '' : u).trim();
+  if (!u) return '#';
+  try {
+    // Resolve against the page origin so protocol-relative ("//host") and relative
+    // paths normalize to a real scheme we can check. Allowlist — never denylist —
+    // so javascript:/data:/vbscript: and any novel scheme fall through to '#'.
+    const parsed = new URL(u, location.origin);
+    return SAFE_URL_SCHEMES[parsed.protocol] ? u : '#';
+  } catch {
+    return '#'; // malformed → inert link, never throw mid-render
+  }
+}
+// jsStr(): make an untrusted value safe inside a single-quoted JS string that itself sits
+// inside a double-quoted HTML attribute (e.g. onclick="doMark('<here>', this)"). The HTML
+// parser decodes entities BEFORE the JS engine runs, so the single-quote must be JS-escaped
+// (backslash, survives HTML decode) while the double-quote is entity-encoded (so it can't
+// close the attribute). This is the fix for the no-click onclick-breakout XSS.
+function jsStr(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;')
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
 // ── Markdown renderer (for digests whose content isn't JSON-shaped) ──
 function mdEscape(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
 function mdInline(s) {
   let r = mdEscape(s);
   // Explicit [text](url) — wrap first so labels can stay readable
-  r = r.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (m, txt, url) => `<a href="${url}" target="_blank" rel="noopener">${txt}</a>`);
+  // url is already mdEscape'd here, so scheme-validate only (re-escaping would double-encode &).
+  r = r.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (m, txt, url) => `<a href="${safeUrl(url)}" target="_blank" rel="noopener">${txt}</a>`);
   // **bold**
   r = r.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
   // *italic* — guard so it doesn't eat already-handled bold leftovers
@@ -1999,11 +2037,18 @@ function extractHeadlineDek(content) {
 }
 
 // Canonicalize a URL so query strings and trailing slashes don't fragment dedup.
+// Hosts whose resource identity lives in the query string (e.g. youtube.com/watch?v=ID).
+// For these, dropping the query would collapse distinct videos/tracks into one dedup key.
+const QUERY_KEYED_HOSTS = { 'youtube.com': 'v', 'www.youtube.com': 'v', 'm.youtube.com': 'v' };
 function canonicalUrl(u) {
   if (!u) return '';
   try {
     const url = new URL(u);
-    return (url.origin + url.pathname).replace(/\/+$/, '').toLowerCase();
+    let base = (url.origin + url.pathname).replace(/\/+$/, '').toLowerCase();
+    const idParam = QUERY_KEYED_HOSTS[url.hostname.toLowerCase()];
+    const idVal = idParam && url.searchParams.get(idParam);
+    if (idVal) base += '?' + idParam + '=' + idVal.toLowerCase();
+    return base;
   } catch {
     return String(u).split('?')[0].replace(/\/+$/, '').toLowerCase();
   }
@@ -2036,8 +2081,9 @@ function bucketDigests(digests, type) {
   }
   const cards = [];
   for (const [k, group] of buckets) {
-    // Newest first (highest id wins for headline preview)
-    group.sort((a, b) => b.id - a.id);
+    // Newest first (highest id wins for headline preview).
+    // Coerce to Number to match loadDigest()'s sort and avoid NaN on non-numeric ids.
+    group.sort((a, b) => Number(b.id) - Number(a.id));
     const latest = group[0];
     cards.push({
       bucketKey: k,
@@ -2086,7 +2132,7 @@ const SECTION_TITLES = {
 };
 function renderStory(story, opts = {}) {
   const titleHtml = story.url
-    ? `<a href="${escHtml(story.url)}" target="_blank" rel="noopener">${escHtml(story.title)}</a>`
+    ? `<a href="${escHtml(safeUrl(story.url))}" target="_blank" rel="noopener">${escHtml(story.title)}</a>`
     : escHtml(story.title);
   const bylineBits = [];
   if (story.source) bylineBits.push(escHtml(story.source));
@@ -2101,8 +2147,8 @@ function renderStory(story, opts = {}) {
     const markId = isMarked ? markedUrls.get(clean) : null;
     if (currentUser) {
       markBtn = isMarked
-        ? ` <span class="mark-btn marked" onclick="doUnmark('${clean}', ${markId}, this)">${t('marked')}</span>`
-        : ` <span class="mark-btn" onclick="doMark('${clean}', this)">${t('mark')}</span>`;
+        ? ` <span class="mark-btn marked" onclick="doUnmark('${jsStr(clean)}', ${markId}, this)">${t('marked')}</span>`
+        : ` <span class="mark-btn" onclick="doMark('${jsStr(clean)}', this)">${t('mark')}</span>`;
     } else {
       markBtn = ` <span class="mark-btn disabled" onclick="showToast('${t('loginToMark')}')">${t('mark')}</span>`;
     }
@@ -2115,7 +2161,7 @@ function renderStory(story, opts = {}) {
 }
 function renderQuickHit(item) {
   const t = item.title || '';
-  const link = item.url ? `<a href="${escHtml(item.url)}" target="_blank" rel="noopener">${escHtml(t)}</a>` : escHtml(t);
+  const link = item.url ? `<a href="${escHtml(safeUrl(item.url))}" target="_blank" rel="noopener">${escHtml(t)}</a>` : escHtml(t);
   const src = item.source ? ` <span class="quick-hit-source">— ${escHtml(item.source)}</span>` : '';
   return `<li class="quick-hit">${link}${src}</li>`;
 }
@@ -2308,8 +2354,8 @@ async function loadDigest(idOrIds) {
         let markHtml;
         if (currentUser) {
           markHtml = isMarked
-            ? `<span class="mark-btn marked" onclick="doUnmark('${clean}', ${markId}, this)">${t('marked')}</span>`
-            : `<span class="mark-btn" onclick="doMark('${clean}', this)">${t('mark')}</span>`;
+            ? `<span class="mark-btn marked" onclick="doUnmark('${jsStr(clean)}', ${markId}, this)">${t('marked')}</span>`
+            : `<span class="mark-btn" onclick="doMark('${jsStr(clean)}', this)">${t('mark')}</span>`;
         } else {
           markHtml = `<span class="mark-btn disabled" onclick="showToast('${t('loginToMark')}')" title="${t('loginToMark')}">${t('mark')}</span>`;
         }
@@ -2456,12 +2502,12 @@ function renderMarkCard(m) {
       <span class="mark-author">@${author}</span>
       <span class="mark-status ${isDone ? 'done' : 'pending'}">${isDone ? t('marksDone') : t('marksPending')}</span>
     </div>
-    ${summary ? `<div style="font-size:13px;color:#bbb;margin:6px 0;line-height:1.5;">${summary}</div>` : ''}
+    ${summary ? `<div style="font-size:13px;color:#bbb;margin:6px 0;line-height:1.5;">${escHtml(summary)}</div>` : ''}
     <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;">
-      <a href="${m.url}" target="_blank" style="font-size:12px;color:#555;text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:70%;">${m.url.replace('https://x.com/','x.com/')}</a>
+      <a href="${escHtml(safeUrl(m.url))}" target="_blank" style="font-size:12px;color:#555;text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:70%;">${escHtml(m.url.replace('https://x.com/','x.com/'))}</a>
       <div style="display:flex;gap:6px;align-items:center;">
-        <span style="font-size:11px;color:#555;background:#1a1a1a;padding:1px 6px;border-radius:3px;border:1px solid #282828;">${topic}</span>
-        <span class="mark-btn" onclick="doUnmark('${m.url}', ${m.id}, this)" style="font-size:11px;color:#e55;border-color:#e55;">✕</span>
+        <span style="font-size:11px;color:#555;background:#1a1a1a;padding:1px 6px;border-radius:3px;border:1px solid #282828;">${escHtml(topic)}</span>
+        <span class="mark-btn" onclick="doUnmark('${jsStr(m.url)}', ${m.id}, this)" style="font-size:11px;color:#e55;border-color:#e55;">✕</span>
       </div>
     </div>
   </div>`;
