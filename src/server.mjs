@@ -400,10 +400,13 @@ const server = createServer(async (req, res) => {
   }
 
   // SPA route: / and /pack/:slug serve frontend HTML
-  if (req.method === 'GET' && (path === '/' || path.startsWith('/pack/'))) {
+  if ((req.method === 'GET' || req.method === 'HEAD') && (path === '/' || path.startsWith('/pack/'))) {
     try {
       const html = readFileSync(join(ROOT, 'web', 'index.html'), 'utf8');
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      // HEAD requests (uptime monitors, SEO crawlers) get headers only, no body,
+      // and must return 200 — previously they fell through to the JSON 404 handler.
+      if (req.method === 'HEAD') { res.end(); return; }
       res.end(html);
       return;
     } catch (e) {
@@ -526,6 +529,13 @@ const server = createServer(async (req, res) => {
 
     const digestMatch = path.match(/^\/api\/digests\/(\d+)$/);
     if (req.method === 'GET' && digestMatch) {
+      // Browser opening this URL directly (e.g. from email)? Bounce to the SPA.
+      const accept = req.headers.accept || '';
+      if (accept.includes('text/html') && !accept.includes('application/json')) {
+        res.writeHead(302, { Location: `/?d=${digestMatch[1]}` });
+        res.end();
+        return;
+      }
       const d = getDigest(db, parseInt(digestMatch[1]));
       if (!d) return json(res, { error: 'not found' }, 404);
       // Cache single digest for 5 minutes
