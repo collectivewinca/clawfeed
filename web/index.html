@@ -2280,8 +2280,10 @@ async function renderList(append = false) {
         }
         const title = headline || fallback;
         const showBadge = !!headline;
+        // Neutral wording: the JSON path dedup-merges re-runs, the markdown path shows the
+        // latest re-run. "updated N×" is truthful for both; "N merged" was false for markdown.
         const updatesNote = card.runCount > 1
-          ? `<div class="updates-note">${card.runCount} updates merged</div>`
+          ? `<div class="updates-note">updated ${card.runCount}×</div>`
           : '';
         const idsAttr = card.ids.join(',');
         html += `<div class="digest-card" data-ids="${idsAttr}"><div class="card-body"><div class="title headline">${title}</div>${dek ? `<div class="excerpt dek">${dek}</div>` : ''}${updatesNote}</div>${showBadge ? badge : ''}</div>`;
@@ -2374,7 +2376,9 @@ async function loadDigest(idOrIds) {
       const longDate = mdDt.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
       const timeStr  = mdDt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'UTC' }) + ' UTC';
       const datelineBits = [longDate, timeStr];
-      if (digests.length > 1) datelineBits.push(`${digests.length} editions merged`);
+      // Markdown digests aren't content-merged (free text can't be safely de-duped), so we
+      // render the latest re-run of this slot. Label honestly rather than claiming a merge.
+      if (digests.length > 1) datelineBits.push(`latest of ${digests.length} runs`);
       datelineBits.push(`Curated by <a href="https://sliver.network/" target="_blank" rel="noopener">Sliver</a>`);
       // Hero image — Picsum seed varies by cadence so each type gets a consistent hero.
       // 4h rotates daily for visual variety across the day's editions.
