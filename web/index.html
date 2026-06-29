@@ -2329,14 +2329,20 @@ async function loadDigest(idOrIds) {
     digests.sort((a, b) => Number(a.id) - Number(b.id));
     const latest = digests[digests.length - 1];
 
-    // Parse + normalize each. Anything that fails parse falls back to plain-text path below.
+    // Parse each run. Branch on the LATEST run's format — not "any sibling is JSON" —
+    // so a mixed bucket (older JSON + newer markdown re-run, or vice versa) renders the
+    // authoritative latest run and never shows stale data of the other format. Older
+    // siblings of the opposite format are superseded by the latest, so skipping them is
+    // correct (same-slot re-runs), not silent data loss.
     const parsedAll = digests.map(d => ({ d, parsed: safeJsonParse(d.content) }));
-    const parseable = parsedAll.filter(p => p.parsed);
+    const latestParsed = safeJsonParse(latest.content);
     let body;
-    if (parseable.length) {
+    if (latestParsed) {
+      const parseable = parsedAll.filter(p => p.parsed);
       const normList = parseable.map(p => normalizeDigest(p.parsed));
       const merged = mergeNormalizedDigests(normList);
-      body = renderDigestNewspaper(latest, merged, { runCount: digests.length });
+      // runCount = runs actually merged (parseable), not the raw bucket size.
+      body = renderDigestNewspaper(latest, merged, { runCount: parseable.length });
       viewer.classList.add('has-news');
     } else {
       // Markdown path: digests served as Markdown (not JSON) get rendered with
