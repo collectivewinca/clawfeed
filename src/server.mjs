@@ -7,7 +7,7 @@ import { fileURLToPath } from 'url';
 import { randomBytes, createHmac, timingSafeEqual } from 'crypto';
 import { lookup } from 'dns/promises';
 import { isIP } from 'net';
-import { getDb, listDigests, getDigest, createDigest, listMarks, createMark, deleteMark, getConfig, setConfig, upsertUser, createSession, getSession, deleteSession, listSources, getSource, createSource, updateSource, deleteSource, getSourceByTypeConfig, getUserBySlug, listDigestsByUser, countDigestsByUser, createPack, getPack, getPackBySlug, listPacks, incrementPackInstall, deletePack, listSubscriptions, subscribe, unsubscribe, bulkSubscribe, isSubscribed, createFeedback, getUserFeedback, getAllFeedback, replyToFeedback, updateFeedbackStatus, markFeedbackRead, getUnreadFeedbackCount } from './db.mjs';
+import { getDb, listDigests, getDigest, createDigest, listMarks, createMark, deleteMark, updateMarkStatus, getConfig, setConfig, upsertUser, createSession, getSession, deleteSession, listSources, getSource, createSource, updateSource, deleteSource, getSourceByTypeConfig, getUserBySlug, listDigestsByUser, countDigestsByUser, createPack, getPack, getPackBySlug, listPacks, incrementPackInstall, deletePack, listSubscriptions, subscribe, unsubscribe, bulkSubscribe, isSubscribed, createFeedback, getUserFeedback, getAllFeedback, replyToFeedback, updateFeedbackStatus, markFeedbackRead, getUnreadFeedbackCount } from './db.mjs';
 import { loadEnv, getEnv } from './utils/env.mjs';
 import { validateString, validateNumber, validateBoolean } from './utils/validation.mjs';
 
@@ -579,6 +579,24 @@ const server = createServer(async (req, res) => {
     }
 
     const markMatch = path.match(/^\/api\/marks\/(\d+)$/);
+    if (req.method === 'PATCH' && markMatch) {
+      const authHeader = req.headers.authorization || '';
+      const bearerKey = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+      const hasValidKey = API_KEY && bearerKey === API_KEY;
+      if (!req.user && !hasValidKey) return json(res, { error: 'not authenticated' }, 401);
+
+      const body = await parseBody(req);
+      const status = String(body.status || '').trim();
+      const validStatuses = ['pending', 'processed'];
+      if (!validStatuses.includes(status)) {
+        return json(res, { error: 'invalid status', valid: validStatuses }, 400);
+      }
+
+      const id = parseInt(markMatch[1], 10);
+      const result = updateMarkStatus(db, id, status);
+      if (!result.changes) return json(res, { error: 'mark not found' }, 404);
+      return json(res, { ok: true, id, status });
+    }
     if (req.method === 'DELETE' && markMatch) {
       if (!req.user) return json(res, { error: 'not authenticated' }, 401);
       deleteMark(db, parseInt(markMatch[1]), req.user.id);

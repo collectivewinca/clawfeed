@@ -1,0 +1,15 @@
+[Unit]
+Description=ClawFeed AI News Digest Service
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/root/clawfeed
+EnvironmentFile=/root/clawfeed/.env
+Environment=DIGEST_HOST=0.0.0.0
+ExecStart=/usr/bin/node src/server.mjs
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
