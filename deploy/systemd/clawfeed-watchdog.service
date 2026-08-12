@@ -1,0 +1,10 @@
+[Unit]
+Description=Watchdog for clawfeed digest cadences — alert on stale data via Telegram
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+SuccessExitStatus=1
+ExecStart=/root/clawfeed-watchdog.sh
+TimeoutStartSec=30

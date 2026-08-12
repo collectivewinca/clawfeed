@@ -1,6 +1,12 @@
 .env
+.env.*
+!.env.example
 node_modules/
 data/
 *.db
 *.db-shm
 *.db-wal
+*.bak*
+*.log
+server.log
+.DS_Store

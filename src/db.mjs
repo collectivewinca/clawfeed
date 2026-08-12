@@ -180,11 +180,12 @@ export function listMarks(db, { status, limit = 100, offset = 0, userId } = {}) 
 }
 
 export function createMark(db, { url, title = '', note = '', userId, sourceName = '', relevance_score = 0.0 }) {
-  // Check duplicate for this user
-  const existing = db.prepare('SELECT id FROM marks WHERE url = ? AND user_id = ?').get(url, userId);
-  if (existing) return { id: existing.id, duplicate: true };
-  const result = db.prepare('INSERT INTO marks (url, title, note, user_id, source_name, relevance_score) VALUES (?, ?, ?, ?, ?, ?)').run(url, title, note, userId, sourceName, relevance_score);
-  return { id: result.lastInsertRowid, duplicate: false };
+  // Idempotent by URL across pending+processed.
+  // Per-user `user_id = ?` misses API-key ingest (userId null) because SQL NULL != NULL.
+  const existing = db.prepare('SELECT id, status FROM marks WHERE url = ? ORDER BY id DESC LIMIT 1').get(url);
+  if (existing) return { id: existing.id, duplicate: true, status: existing.status };
+  const result = db.prepare('INSERT INTO marks (url, title, note, user_id, source_name, relevance_score) VALUES (?, ?, ?, ?, ?, ?)').run(url, title, note, userId ?? null, sourceName, relevance_score);
+  return { id: result.lastInsertRowid, duplicate: false, status: 'pending' };
 }
 
 export function deleteMark(db, id, userId) {
