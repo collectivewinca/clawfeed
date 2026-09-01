@@ -30,11 +30,14 @@ logger = logging.getLogger("brief-writer")
 
 DB_PATH = os.environ.get("CHIPMONK_DB", "/root/clawfeed/data/digest.db")
 
-GATEWAY_URL = os.environ.get(
-    "GATEWAY_URL", "http://169.254.169.254/gateway/llm/anthropic/v1/messages"
-)
-GATEWAY_MODEL = os.environ.get("BRIEF_MODEL", "claude-sonnet-4-6")
-GATEWAY_TIMEOUT = float(os.environ.get("GATEWAY_TIMEOUT", "60"))
+OLLAMA_CHAT_URL = os.environ.get("OLLAMA_CHAT_URL", "https://ollama.com/api/chat")
+OLLAMA_API_KEY = os.environ.get("OLLAMA_API_KEY", "")
+# deepseek-v4-flash is the current Ollama Cloud deepseek line (v3.1 was delisted
+# from the cloud catalog 2026-06; still pullable but retirement-risk). It is a
+# reasoning model: thinking goes to message.thinking, prose to message.content,
+# so /api/chat (below) is clean. Do NOT reuse on /api/generate (returns empty).
+GATEWAY_MODEL = os.environ.get("BRIEF_MODEL", "deepseek-v4-flash")
+GATEWAY_TIMEOUT = float(os.environ.get("GATEWAY_TIMEOUT", "120"))
 
 TOP_N = int(os.environ.get("BRIEF_TOP_N", "12"))
 MIN_SCORE = float(os.environ.get("BRIEF_MIN_SCORE", "0.40"))
@@ -106,32 +109,35 @@ def format_stories(rows) -> str:
 
 def call_sonnet(stories: str, today: str) -> str | None:
     user_prompt = USER_PROMPT_TEMPLATE.format(date=today, stories=stories)
+    if not OLLAMA_API_KEY:
+        logger.error("OLLAMA_API_KEY not set; cannot generate brief")
+        return None
     try:
         r = requests.post(
-            GATEWAY_URL,
+            OLLAMA_CHAT_URL,
             headers={
+                "Authorization": f"Bearer {OLLAMA_API_KEY}",
                 "Content-Type": "application/json",
-                "anthropic-version": "2023-06-01",
             },
             json={
                 "model": GATEWAY_MODEL,
-                "max_tokens": 2000,
-                "system": SYSTEM_PROMPT,
-                "messages": [{"role": "user", "content": user_prompt}],
+                "stream": False,
+                "messages": [
+                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {"role": "user", "content": user_prompt},
+                ],
             },
             timeout=GATEWAY_TIMEOUT,
         )
         r.raise_for_status()
         data = r.json()
     except Exception as e:
-        logger.error(f"gateway failed: {type(e).__name__}: {e}")
+        logger.error(f"ollama failed: {type(e).__name__}: {e}")
         return None
 
-    text = ""
-    for block in data.get("content", []):
-        if block.get("type") == "text":
-            text += block.get("text", "")
-    return text.strip() or None
+    msg = data.get("message", {}) or {}
+    text = (msg.get("content") or "").strip()
+    return text or None
 
 
 def write_digest(conn: sqlite3.Connection, brief_text: str, mark_ids: list[int]) -> int:

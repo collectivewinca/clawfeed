@@ -31,10 +31,11 @@ logger = logging.getLogger("tracker-updater")
 
 DB_PATH = os.environ.get("CHIPMONK_DB", "/root/clawfeed/data/digest.db")
 
-GATEWAY_URL = os.environ.get(
-    "GATEWAY_URL", "http://169.254.169.254/gateway/llm/anthropic/v1/messages"
-)
-GATEWAY_MODEL = os.environ.get("TRACKER_MODEL", "claude-haiku-4-5-20251001")
+OLLAMA_CHAT_URL = os.environ.get("OLLAMA_CHAT_URL", "https://ollama.com/api/chat")
+OLLAMA_API_KEY = os.environ.get("OLLAMA_API_KEY", "")
+# exe.dev Anthropic gateway hit 402 (credits exhausted) 2026-06; rerouted to
+# Ollama Cloud deepseek-v4-flash (reasoning -> message.content on /api/chat).
+GATEWAY_MODEL = os.environ.get("TRACKER_MODEL", "deepseek-v4-flash")
 GATEWAY_TIMEOUT = float(os.environ.get("GATEWAY_TIMEOUT", "30"))
 
 MIN_SCORE = float(os.environ.get("TRACKER_MIN_SCORE", "0.30"))
@@ -42,6 +43,7 @@ WINDOW_DAYS = int(os.environ.get("TRACKER_WINDOW_DAYS", "7"))
 
 # Entity → list of substrings to match (case-insensitive). First slug is canonical.
 ENTITIES: dict[str, list[str]] = {
+    # Semi majors
     "tsmc": ["tsmc", "taiwan semiconductor"],
     "nvidia": ["nvidia", "nvda"],
     "amd": ["amd ", "advanced micro devices"],
@@ -52,6 +54,35 @@ ENTITIES: dict[str, list[str]] = {
     "broadcom": ["broadcom", "avgo"],
     "micron": ["micron"],
     "qualcomm": ["qualcomm"],
+    "oracle": ["oracle", "orcl"],
+    # AI infrastructure (Aschenbrenner Q1 2026 long book)
+    "bloom-energy": ["bloom energy", "bloomenergy"],
+    "sandisk": ["sandisk", "sndk"],
+    "coreweave": ["coreweave", "crwv"],
+    "iris-energy": ["iris energy", "iren "],
+    "core-scientific": ["core scientific", "corz"],
+    "applied-digital": ["applied digital", "apld"],
+    "riot": ["riot platforms", "riot blockchain"],
+    "cleanspark": ["cleanspark", "clsk"],
+    "bitfarms": ["bitfarms"],
+    "bitdeer": ["bitdeer"],
+    "hive-digital": ["hive digital", "hive blockchain", "hive stock"],
+    "babcock-wilcox": ["babcock", "wilcox", "bw stock"],
+    "propetro": ["propetro"],
+    "t1-energy": ["t1 energy"],
+    "solaris-energy": ["solaris energy"],
+    "power-solutions": ["power solutions international", "psix"],
+    "sharon-ai": ["sharon ai", "sharonai", "shaz"],
+    "whitefiber": ["whitefiber", "white fiber", "wyfi"],
+    # last30days discovery picks (2026-06-08)
+    "ge-vernova": ["ge vernova", "vernova", "gev stock"],
+    "nebius": ["nebius", "nbis"],
+    "wolfspeed": ["wolfspeed", "wolf stock"],
+    "constellation-energy": ["constellation energy", "ceg stock"],
+    "talen": ["talen energy", "tln stock"],
+    "vistra": ["vistra", "vst stock"],
+    "oklo": ["oklo"],
+    "vertiv": ["vertiv", "vrt stock"],
 }
 
 
@@ -88,14 +119,14 @@ def summarize_entity(slug: str, rows: list[tuple]) -> str | None:
     )
     try:
         r = requests.post(
-            GATEWAY_URL,
+            OLLAMA_CHAT_URL,
             headers={
+                "Authorization": f"Bearer {OLLAMA_API_KEY}",
                 "Content-Type": "application/json",
-                "anthropic-version": "2023-06-01",
             },
             json={
                 "model": GATEWAY_MODEL,
-                "max_tokens": 500,
+                "stream": False,
                 "messages": [{"role": "user", "content": user_prompt}],
             },
             timeout=GATEWAY_TIMEOUT,
@@ -103,14 +134,11 @@ def summarize_entity(slug: str, rows: list[tuple]) -> str | None:
         r.raise_for_status()
         data = r.json()
     except Exception as e:
-        logger.warning(f"gateway failed for {slug}: {type(e).__name__}: {e}")
+        logger.warning(f"ollama failed for {slug}: {type(e).__name__}: {e}")
         return None
 
-    text = ""
-    for block in data.get("content", []):
-        if block.get("type") == "text":
-            text += block.get("text", "")
-    return text.strip() or None
+    text = ((data.get("message") or {}).get("content") or "").strip()
+    return text or None
 
 
 def upsert_config(conn: sqlite3.Connection, key: str, value: str) -> None:

@@ -5,3 +5,9 @@ data/
 *.db-shm
 *.db-wal
 /clawfeed.snapshot.*.tar.gz
+__pycache__/
+*.pyc
+*.bak*
+logs/
+*.orig
+*~

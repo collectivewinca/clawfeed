@@ -35,9 +35,9 @@ DB_PATH = os.environ.get("CHIPMONK_DB", "/root/clawfeed/data/digest.db")
 OUT_PATH = os.environ.get("CHIPMONK_CENTROIDS", "/root/clawfeed/data/centroids.json")
 
 GATEWAY_URL = os.environ.get(
-    "EMBED_URL", "http://169.254.169.254/gateway/llm/openai/v1/embeddings"
+    "EMBED_URL", "http://127.0.0.1:11434/v1/embeddings"
 )
-EMBED_MODEL = os.environ.get("EMBED_MODEL", "text-embedding-3-small")
+EMBED_MODEL = os.environ.get("EMBED_MODEL", "embeddinggemma")
 EMBED_TIMEOUT = float(os.environ.get("EMBED_TIMEOUT", "20"))
 
 WINDOW_DAYS = int(os.environ.get("CENTROID_WINDOW_DAYS", "180"))

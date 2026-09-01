@@ -44,6 +44,56 @@ const DB_PATH = process.env.DIGEST_DB || join(ROOT, 'data', 'digest.db');
 mkdirSync(join(ROOT, 'data'), { recursive: true });
 const db = getDb(DB_PATH);
 
+
+// ── Yahoo chart helper (used by /api/markets/*) ──
+const _marketsCache = { soxx: null, quotes: null, spark: {} }; // v2 schema (day_pct)
+const MARKETS_TTL_MS = 6 * 60 * 60 * 1000;
+const CHIP_SYMBOLS = ['NVDA','AMD','INTC','QCOM','TSM','AVGO','MU','ARM','ASML','AMAT','LRCX','KLAC','MPWR','SMCI','ANET','ORCL','SMH','BE','SNDK','CRWV','IREN','CORZ','APLD','RIOT','CLSK','SEI','TE','BITF','BTDR','PSIX','BW','PUMP','HIVE','SHAZ','WYFI'];
+const CHIP_NAMES = {
+  NVDA: 'NVIDIA', AMD: 'AMD', INTC: 'Intel', QCOM: 'Qualcomm', TSM: 'TSMC',
+  AVGO: 'Broadcom', MU: 'Micron', ARM: 'Arm', ASML: 'ASML', AMAT: 'Applied Materials',
+  LRCX: 'Lam Research', KLAC: 'KLA', MPWR: 'Monolithic Power', SMCI: 'Super Micro',
+  ANET: 'Arista',
+  ORCL: 'Oracle', SMH: 'VanEck Semiconductor ETF',
+  BE: 'Bloom Energy', SNDK: 'SanDisk', CRWV: 'CoreWeave', IREN: 'Iris Energy',
+  CORZ: 'Core Scientific', APLD: 'Applied Digital', RIOT: 'Riot Platforms',
+  CLSK: 'CleanSpark', SEI: 'Solaris Energy', TE: 'T1 Energy', BITF: 'Bitfarms',
+  BTDR: 'Bitdeer', PSIX: 'Power Solutions', BW: 'Babcock & Wilcox',
+  PUMP: 'ProPetro', HIVE: 'Hive Digital',
+  SHAZ: 'Sharon AI', WYFI: 'WhiteFiber',
+};
+async function yahooChart(symbol) {
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1y`;
+  const r = await fetch(url, {
+    headers: { 'User-Agent': 'Mozilla/5.0 (chipmonk.tech)' },
+    signal: AbortSignal.timeout(8000),
+  });
+  if (!r.ok) throw new Error(`yahoo ${symbol} ${r.status}`);
+  const data = await r.json();
+  const res0 = data && data.chart && data.chart.result && data.chart.result[0];
+  if (!res0) throw new Error(`yahoo ${symbol} empty`);
+  const m = res0.meta || {};
+  const closes = ((res0.indicators && res0.indicators.quote && res0.indicators.quote[0] && res0.indicators.quote[0].close) || []).filter(x => typeof x === 'number');
+  const yearAgo = closes[0];
+  const latest = closes[closes.length - 1] !== undefined ? closes[closes.length - 1] : m.regularMarketPrice;
+  const price = m.regularMarketPrice != null ? m.regularMarketPrice : latest;
+  // closes[-2] is the prior trading day's close (real "yesterday"), independent of `range`.
+  const dayPrev = closes.length >= 2 ? closes[closes.length - 2] : null;
+  return {
+    symbol: m.symbol || symbol,
+    name: m.longName || m.shortName || symbol,
+    currency: m.currency || 'USD',
+    price,
+    day_prev_close: dayPrev,
+    day_pct: dayPrev ? +(((price / dayPrev) - 1) * 100).toFixed(2) : null,
+    year_ago: yearAgo != null ? yearAgo : null,
+    year_high: m.fiftyTwoWeekHigh != null ? m.fiftyTwoWeekHigh : null,
+    year_low: m.fiftyTwoWeekLow != null ? m.fiftyTwoWeekLow : null,
+    yoy_pct: yearAgo ? +(((latest / yearAgo) - 1) * 100).toFixed(2) : null,
+    asOf: m.regularMarketTime ? new Date(m.regularMarketTime * 1000).toISOString() : new Date().toISOString(),
+  };
+}
+
 function json(res, data, status = 200) {
   res.writeHead(status, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify(data));
@@ -311,7 +361,20 @@ function cleanSummary(s, title = '') {
       }
     }
   }
+
+  // Reject LLM refusals / "I can't summarize this paywalled article" outputs.
+  // The summarize endpoint treats empty as a 502 and never writes to the DB.
+  if (isLlmRefusal(out)) return '';
+
   return out;
+}
+
+function isLlmRefusal(s) {
+  if (!s) return true;
+  const head = s.slice(0, 400).toLowerCase();
+  if (/^\s*(i cannot|i can't|i'm unable|i am unable|i appreciate your request|i apologize|i'm sorry|i am sorry|unfortunately, i|as an ai)\b/.test(head)) return true;
+  if (/\b(behind a paywall|content is not accessible|subscription landing page|unable to (?:provide|complete|summarize|access)|cannot (?:summarize|complete this task|provide the))\b/.test(head)) return true;
+  return false;
 }
 
 function welcomeEmail() {
@@ -404,8 +467,19 @@ const server = createServer(async (req, res) => {
   console.log('[request]', req.method, req.url, '-> path:', path);
 
   // ── Health check ──
+  // Probes Ollama with a 2s timeout so the Hetzner watchdog (5min cadence,
+  // 12s probe timeout) fires resurrect if Ollama is dead. resurrect runs
+  // `pm2 resurrect`, which restarts Ollama because it's in dump.pm2.
   if (req.method === 'GET' && (path === '/api/health' || path === '/health')) {
-    return json(res, { status: 'ok' });
+    let ollama = 'unknown';
+    try {
+      const r = await fetch('http://127.0.0.1:11434/api/tags', { signal: AbortSignal.timeout(2000) });
+      ollama = r.ok ? 'ok' : 'http_' + r.status;
+    } catch {
+      ollama = 'down';
+    }
+    const allOk = ollama === 'ok';
+    return json(res, { status: allOk ? 'ok' : 'degraded', ollama }, allOk ? 200 : 503);
   }
 
   // ── Candidate companies (admin) ──
@@ -442,7 +516,7 @@ const server = createServer(async (req, res) => {
     }
     // Pull recent marks with KEY ENTITIES
     const since = new Date(Date.now() - lookbackDays * 86400_000).toISOString().slice(0, 19).replace('T', ' ');
-    const marks = db.prepare(`SELECT id, note FROM marks WHERE created_at >= ? AND note LIKE '%KEY ENTITIES%'`).all(since);
+    const marks = db.prepare(`SELECT id, note FROM marks WHERE created_at >= ? AND note IS NOT NULL AND note <> ''`).all(since);
     const seen = new Set();
     const candidates = [];
     for (const m of marks) {
@@ -456,6 +530,13 @@ const server = createServer(async (req, res) => {
     }
     if (!candidates.length) {
       return json(res, { ok: true, scanned_marks: marks.length, extracted: 0, classifications: { known: 0, candidate: 0, not_a_company: 0 } });
+    }
+    const CANDIDATE_CAP = 600;
+    let capped = 0;
+    if (candidates.length > CANDIDATE_CAP) {
+      capped = candidates.length - CANDIDATE_CAP;
+      console.warn(`[candidates] capping ${candidates.length} -> ${CANDIDATE_CAP} (dropped ${capped}); raise CANDIDATE_CAP or lower lookbackDays`);
+      candidates.length = CANDIDATE_CAP;
     }
     // Batch-classify (one HTTP call)
     let results;
@@ -532,6 +613,137 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  // ── company-detail: /api/markets/spark/:symbol + /api/company/:sym/marks ──
+  if (req.method === 'GET' && path.startsWith('/api/markets/spark/')) {
+    const sym = path.slice('/api/markets/spark/'.length).toUpperCase();
+    if (!CHIP_SYMBOLS.includes(sym)) return json(res, { error: 'unknown_symbol' }, 404);
+    try {
+      const cached = _marketsCache.spark[sym];
+      if (!cached || Date.now() - cached.t > MARKETS_TTL_MS) {
+        const url = `https://query1.finance.yahoo.com/v8/finance/chart/${sym}?interval=1d&range=3mo`;
+        const r = await fetch(url, {
+          headers: { 'User-Agent': 'Mozilla/5.0 (chipmonk.tech)' },
+          signal: AbortSignal.timeout(8000),
+        });
+        if (!r.ok) throw new Error(`yahoo spark ${sym} ${r.status}`);
+        const data = await r.json();
+        const res0 = data && data.chart && data.chart.result && data.chart.result[0];
+        if (!res0) throw new Error(`yahoo spark ${sym} empty`);
+        const ts = res0.timestamp || [];
+        const closes = (res0.indicators && res0.indicators.quote && res0.indicators.quote[0] && res0.indicators.quote[0].close) || [];
+        const points = [];
+        for (let i = 0; i < Math.min(ts.length, closes.length); i++) {
+          if (typeof closes[i] === 'number' && Number.isFinite(closes[i])) {
+            points.push({ t: ts[i], c: +closes[i].toFixed(4) });
+          }
+        }
+        _marketsCache.spark[sym] = {
+          t: Date.now(),
+          data: { symbol: sym, points, asOf: new Date().toISOString() },
+        };
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=3600' });
+      res.end(JSON.stringify(_marketsCache.spark[sym].data));
+    } catch (e) {
+      return json(res, { error: 'spark_unavailable', detail: e.message }, 502);
+    }
+    return;
+  }
+
+  if (req.method === 'GET' && path.startsWith('/api/company/') && path.endsWith('/marks')) {
+    const mid = path.slice('/api/company/'.length, -'/marks'.length);
+    const sym = mid.toUpperCase();
+    if (!CHIP_SYMBOLS.includes(sym)) return json(res, { error: 'unknown_symbol' }, 404);
+    try {
+      // Look up the company display name from the in-memory quotes cache if warm.
+      const companyName = CHIP_NAMES[sym] || null;
+      // marks table has no key_entities column — LIKE-match against title + note.
+      // Restrict to approved status to surface only published intel.
+      // company-detail: short-name fallback
+      // Yahoo returns full legal names ("NVIDIA Corporation"); marks usually
+      // say "NVIDIA". Derive a short name by stripping common corporate
+      // suffixes so we still match those mentions.
+      const shortName = companyName
+        ? companyName
+            .replace(/\b(corporation|corp|incorporated|inc|company|co|limited|ltd|plc|holdings|holding|group|technologies|technology|tech|semiconductor|semiconductors|systems|s\.?a\.?|n\.?v\.?|llc)\b\.?/gi, '')
+            .replace(/[,.]/g, '')
+            .replace(/\s+/g, ' ')
+            .trim()
+        : '';
+      // Short tickers (BE, TE, BW) match too aggressively ("beats", "to", "by")
+      // even with COLLATE NOCASE word-bounding. For length<4 fall back to name-only
+      // matching — Google News ingest prefixes the company name so this is safe.
+      const wantSym = sym.length >= 4 ? `%${sym}%` : (companyName ? `%${companyName}%` : `% ${sym} %`);
+      const wantName = companyName ? `%${companyName}%` : wantSym;
+      const wantShort = shortName && shortName.length >= 2 && shortName.toLowerCase() !== sym.toLowerCase()
+        ? `%${shortName}%`
+        : wantSym;
+      const rows = db.prepare(
+        `SELECT id, title, note, url, source_name, created_at
+         FROM marks
+         WHERE status IN ('approved', 'pending')
+           AND (
+             title LIKE ? COLLATE NOCASE OR note LIKE ? COLLATE NOCASE
+             OR title LIKE ? COLLATE NOCASE OR note LIKE ? COLLATE NOCASE
+             OR title LIKE ? COLLATE NOCASE OR note LIKE ? COLLATE NOCASE
+           )
+         ORDER BY CASE status WHEN 'approved' THEN 0 ELSE 1 END, created_at DESC
+         LIMIT 10`
+      ).all(wantSym, wantSym, wantName, wantName, wantShort, wantShort);
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=300' });
+      res.end(JSON.stringify(rows));
+    } catch (e) {
+      return json(res, { error: 'marks_query_failed', detail: e.message }, 500);
+    }
+    return;
+  }
+
+  // ── company-detail: /company/:SYMBOL page route ──
+  if (req.method === 'GET' && path.startsWith('/company/')) {
+    const sym = path.slice('/company/'.length).toUpperCase();
+    if (!CHIP_SYMBOLS.includes(sym)) {
+      res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+      res.end(`Unknown company symbol: ${sym}`);
+      return;
+    }
+    try {
+      const html = readFileSync(join(ROOT, 'web', 'company.html'), 'utf8');
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(html);
+      return;
+    } catch (e) {
+      res.writeHead(500); res.end('Internal error'); return;
+    }
+  }
+
+  // ── Markets / live chip data (Yahoo Finance, cached 6h) ──
+  if (req.method === 'GET' && (path === '/api/markets/soxx' || path === '/api/markets/chip-quotes')) {
+    try {
+      const wantQuotes = path === '/api/markets/chip-quotes';
+      if (wantQuotes) {
+        if (!_marketsCache.quotes || Date.now() - _marketsCache.quotes.t > MARKETS_TTL_MS) {
+          const settled = await Promise.allSettled(CHIP_SYMBOLS.map(yahooChart));
+          const quotes = {};
+          for (const s of settled) if (s.status === 'fulfilled') quotes[s.value.symbol] = s.value;
+          _marketsCache.quotes = { t: Date.now(), data: quotes };
+        }
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=3600' });
+        res.end(JSON.stringify({ asOf: new Date(_marketsCache.quotes.t).toISOString(), quotes: _marketsCache.quotes.data }));
+      } else {
+        if (!_marketsCache.soxx || Date.now() - _marketsCache.soxx.t > MARKETS_TTL_MS) {
+          const d = await yahooChart('SOXX');
+          _marketsCache.soxx = { t: Date.now(), data: d };
+        }
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=3600' });
+        res.end(JSON.stringify(_marketsCache.soxx.data));
+      }
+    } catch (e) {
+      return json(res, { error: 'markets_unavailable', detail: e.message }, 502);
+    }
+    return;
+  }
+
+
   // ── robots.txt ──
   if (req.method === 'GET' && path === '/robots.txt') {
     const body = `User-agent: *
@@ -564,6 +776,11 @@ Sitemap: ${PUBLIC_BASE_URL}/sitemap.xml
         priority: '0.6',
         changefreq: 'monthly'
       })),
+      ...CHIP_SYMBOLS.map(sym => ({
+        loc: `${PUBLIC_BASE_URL}/company/${sym}`,
+        priority: '0.6',
+        changefreq: 'daily'
+      })),  // // company-detail: per-symbol sitemap entries
       ...trackerSlugs.map(slug => ({
         loc: `${PUBLIC_BASE_URL}/tracker/${slug}`,
         priority: '0.7',
@@ -620,12 +837,17 @@ ${items}
   }
 
   // ── SPA Routes ──
-  if (req.method === 'GET' && (path === '/' || path === '/dashboard' || path === '/blog' || path === '/about' || path === '/companies' || path === '/briefs' || path.startsWith('/brief/') || path.startsWith('/tracker/') || path === '/tracker')) {
+  if (req.method === 'GET' && (path === '/' || path === '/dashboard' || path === '/blog' || path === '/about' || path === '/companies' || path === '/aschenbrenner' || path === '/briefs' || path.startsWith('/brief/') || path.startsWith('/tracker/') || path === '/tracker')) {
     try {
+      if (path === '/dashboard') {
+        attachUser(req);
+        if (!req.user) { res.writeHead(404, { 'Content-Type': 'text/plain' }); res.end('Not found'); return; }
+      }
       let file = 'showcase.html';
       if (path === '/blog') file = 'blog.html';
       else if (path === '/about') file = 'about.html';
       else if (path === '/companies') file = 'companies.html';
+      else if (path === '/aschenbrenner') file = 'aschenbrenner.html';
       else if (path === '/dashboard') file = 'dashboard.html';
       else if (path === '/briefs') file = 'briefs.html';
       else if (path.startsWith('/brief/')) file = 'brief.html';
@@ -756,7 +978,8 @@ ${items}
       const limitRaw = params.get('limit');
       const limit = limitRaw != null && limitRaw !== '' ? Math.max(1, Math.min(500, parseInt(limitRaw, 10))) : 100;
       const userId = req.user ? req.user.id : undefined;
-      return json(res, listMarks(db, { status, userId, since, minScore, source, sort, limit }));
+      const publicOnly = !req.user;
+      return json(res, listMarks(db, { status, userId, publicOnly, since, minScore, source, sort, limit }));
     }
 
     if (req.method === 'GET' && path === '/api/marks/sources') {
@@ -765,12 +988,13 @@ ${items}
     }
 
     if (req.method === 'POST' && path === '/api/marks') {
+      if (!req.user || req.user.id !== 1) return json(res, { error: 'not authenticated' }, 401);
       const body = await parseBody(req);
       if (body.update && body.id) {
-        db.prepare('UPDATE marks SET note = ? WHERE id = ?').run(body.note || '', body.id);
+        db.prepare('UPDATE marks SET note = ? WHERE id = ? AND (user_id = ? OR ? = 1)').run(body.note || '', body.id, req.user.id, req.user.id);
         return json(res, { ok: true });
       }
-      const result = createMark(db, { ...body, userId: req.user ? req.user.id : null });
+      const result = createMark(db, { url: body.url, title: body.title, note: body.note, userId: req.user.id });
       return json(res, { ok: true, ...result });
     }
 
@@ -778,6 +1002,7 @@ ${items}
     if (req.method === 'PUT' && markStatusMatch) {
       if (!req.user) return json(res, { error: 'not authenticated' }, 401);
       const body = await parseBody(req);
+      if (!['pending', 'approved', 'rejected', 'processed'].includes(body.status)) return json(res, { error: 'invalid status' }, 400);
       updateMarkStatus(db, parseInt(markStatusMatch[1]), body.status);
       return json(res, { ok: true });
     }
@@ -794,11 +1019,19 @@ ${items}
       if (mark.url) {
         try {
           await assertSafeFetchUrl(mark.url);
-          const r = await fetch(mark.url, {
-            signal: AbortSignal.timeout(10000),
-            redirect: 'follow',
-            headers: { 'User-Agent': 'ChipMonkBot/1.0 (+https://chipmonk.tech)' }
-          });
+          let _fetchUrl = mark.url;
+          let r;
+          for (let _hop = 0; _hop < 6; _hop++) {
+            r = await fetch(_fetchUrl, {
+              signal: AbortSignal.timeout(10000),
+              redirect: 'manual',
+              headers: { 'User-Agent': 'ChipMonkBot/1.0 (+https://chipmonk.tech)' }
+            });
+            const _loc = (r.status >= 300 && r.status < 400) ? r.headers.get('location') : null;
+            if (!_loc) break;
+            _fetchUrl = new URL(_loc, _fetchUrl).href;
+            await assertSafeFetchUrl(_fetchUrl);
+          }
           if (r.ok) {
             const html = await r.text();
             articleText = html
@@ -834,11 +1067,17 @@ ${bodyBlock}
 Brief:`;
 
       try {
-        const ollamaResp = await fetch('http://127.0.0.1:11434/api/generate', {
+        const OLLAMA_GEN_URL = env.OLLAMA_GENERATE_URL || process.env.OLLAMA_GENERATE_URL || 'http://127.0.0.1:11434/api/generate';
+        const OLLAMA_SUM_MODEL = env.OLLAMA_SUMMARY_MODEL || process.env.OLLAMA_SUMMARY_MODEL || 'llama3.2:1b';
+        const _ollKey = env.OLLAMA_API_KEY || process.env.OLLAMA_API_KEY || '';
+        const _ollHeaders = { 'Content-Type': 'application/json' };
+        if (_ollKey) _ollHeaders['Authorization'] = 'Bearer ' + _ollKey;
+        const ollamaResp = await fetch(OLLAMA_GEN_URL, {
           method: 'POST',
+          headers: _ollHeaders,
           signal: AbortSignal.timeout(180000),
           body: JSON.stringify({
-            model: 'llama3.2:1b',
+            model: OLLAMA_SUM_MODEL,
             prompt,
             stream: false,
             options: { temperature: 0.25, num_predict: 700, stop: ['Note:', 'Note that:', 'Disclaimer:', 'I have stopped', 'I will stop'] }

@@ -29,10 +29,11 @@ logger = logging.getLogger("article-reader")
 
 DB_PATH = os.environ.get("CHIPMONK_DB", "/root/clawfeed/data/digest.db")
 
-GATEWAY_URL = os.environ.get(
-    "GATEWAY_URL", "http://169.254.169.254/gateway/llm/anthropic/v1/messages"
-)
-GATEWAY_MODEL = os.environ.get("GATEWAY_MODEL", "claude-haiku-4-5-20251001")
+OLLAMA_CHAT_URL = os.environ.get("OLLAMA_CHAT_URL", "https://ollama.com/api/chat")
+OLLAMA_API_KEY = os.environ.get("OLLAMA_API_KEY", "")
+# exe.dev Anthropic gateway hit 402 (credits exhausted) 2026-06; rerouted to
+# Ollama Cloud deepseek-v4-flash (reasoning -> message.content on /api/chat).
+GATEWAY_MODEL = os.environ.get("GATEWAY_MODEL", "deepseek-v4-flash")
 GATEWAY_TIMEOUT = float(os.environ.get("GATEWAY_TIMEOUT", "20"))
 
 FETCH_TIMEOUT = float(os.environ.get("FETCH_TIMEOUT", "12"))
@@ -102,14 +103,14 @@ def summarize(title: str, body: str) -> Optional[str]:
     prompt = PROMPT_TEMPLATE.format(title=title[:300], body=body)
     try:
         r = requests.post(
-            GATEWAY_URL,
+            OLLAMA_CHAT_URL,
             headers={
+                "Authorization": f"Bearer {OLLAMA_API_KEY}",
                 "Content-Type": "application/json",
-                "anthropic-version": "2023-06-01",
             },
             json={
                 "model": GATEWAY_MODEL,
-                "max_tokens": 400,
+                "stream": False,
                 "messages": [{"role": "user", "content": prompt}],
             },
             timeout=GATEWAY_TIMEOUT,
@@ -117,14 +118,10 @@ def summarize(title: str, body: str) -> Optional[str]:
         r.raise_for_status()
         data = r.json()
     except Exception as e:
-        logger.warning(f"gateway failed: {type(e).__name__}: {e}")
+        logger.warning(f"ollama failed: {type(e).__name__}: {e}")
         return None
 
-    text = ""
-    for block in data.get("content", []):
-        if block.get("type") == "text":
-            text += block.get("text", "")
-    text = text.strip()
+    text = ((data.get("message") or {}).get("content") or "").strip()
     if len(text) < 30:
         return None
     return text
