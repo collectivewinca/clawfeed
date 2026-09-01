@@ -1,6 +1,15 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-B6TKVV8MJD"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-B6TKVV8MJD');
+</script>
+
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <meta name="robots" content="noindex, nofollow">
@@ -64,6 +73,8 @@ select,input{font-family:inherit}
 <a href="/blog" class="font-semibold nav-link">Insights</a>
 <a href="/companies" class="font-semibold nav-link">Companies</a>
 <a href="/about" class="font-semibold nav-link">Market</a>
+<a href="/hardware/" class="font-semibold nav-link">Hardware</a>
+<a href="/view2/" class="font-semibold nav-link">Daily</a>
 <a href="/dashboard" class="font-semibold nav-link" style="color:var(--ink)">Dashboard</a>
 </div>
 </nav>
@@ -110,10 +121,10 @@ select,input{font-family:inherit}
 <section id="panel-marks" class="panel hidden">
 <div class="flex flex-wrap items-center gap-3 mb-6">
 <select id="filter-status" class="filter-input"><option value="">All statuses</option><option value="approved">Approved</option><option value="pending">Pending</option><option value="rejected">Rejected</option></select>
-<select id="filter-source" class="filter-input"><option value="">All sources</option></select>
+<select id="filter-type" class="filter-input"><option value="">All types</option><option value="trusted">★ Trusted</option><option value="tweets">Tweets</option><option value="links">Links</option><option value="papers">Papers</option></select><select id="filter-source" class="filter-input"><option value="">All sources</option></select>
 <select id="filter-sort" class="filter-input"><option value="time">Newest first</option><option value="score">Highest score</option></select>
 <input id="filter-min-score" type="number" min="0" max="1" step="0.05" placeholder="Min score" class="filter-input w-28">
-<button class="btn" onclick="loadMarks()">Apply</button>
+<button class="btn" onclick="loadMarks()">Apply</button><button class="btn btn-approve" onclick="approveAllVisible()">Approve all visible</button>
 </div>
 <div id="marks-list"><div class="text-gray-400 font-mono text-sm">Loading marks...</div></div>
 </section>
@@ -144,6 +155,42 @@ select,input{font-family:inherit}
 const API = "/api";
 let isAdmin = false;
 let allMarks = [];
+let marksVisible = [];
+// ============================================================
+// CURATOR CONFIG — edit these lists to tune the Type filter / handoff.
+// Sources here show as "Trusted" (top of queue, safe to bulk-approve).
+// Fallback by prefix: twitter_* -> Tweets (unless handle is trusted below),
+// arxiv -> Papers, everything else -> Links.
+// ============================================================
+const TRUSTED_SOURCES = [
+  "ars_technica","ieee_spectrum","mit_technology_review","stratechery","synced_ai",
+  "pytorch_blog","cloudflare_blog","industry_chips"
+];
+const TRUSTED_TWEET_HANDLES = [   // verified / chipmonk-audited expert handles
+  "twitter_ylecun","twitter_demishassabis","twitter_andrewyng","twitter_dylan522p",
+  "twitter_iancutress","twitter_soumithchintala","twitter_thom_wolf","twitter_asianometry",
+  "twitter_dylanonchips","twitter_ohlennart","twitter_techinsightsinc","twitter_gdb"
+];
+const PAPER_SOURCES = ["arxiv"];
+function classifyType(src){
+  src = src || "";
+  if (TRUSTED_SOURCES.includes(src) || TRUSTED_TWEET_HANDLES.includes(src)) return "trusted";
+  if (src.startsWith("stocknews_")) return "trusted"; // curated ticker news
+  if (PAPER_SOURCES.includes(src)) return "papers";
+  if (src.startsWith("twitter_")) return "tweets";
+  return "links";
+}
+const TYPE_LABELS = { trusted:"\u2605 Trusted", tweets:"Tweet", links:"Link", papers:"Paper" };
+const TYPE_STYLE = { trusted:"background:#ecfdf5;color:#047857", tweets:"background:#eff6ff;color:#1d4ed8", links:"background:#f1f5f9;color:#334155", papers:"background:#fef3c7;color:#92400e" };
+async function approveAllVisible(){
+  const targets = marksVisible.filter(m => m.status !== "approved");
+  if (!targets.length) { alert("Nothing to approve in the current view."); return; }
+  if (!confirm("Approve " + targets.length + " visible item(s)?")) return;
+  for (const m of targets){
+    try { await fetch(API + "/marks/" + m.id + "/status", {method:"PUT", credentials:"same-origin", headers:{"Content-Type":"application/json"}, body: JSON.stringify({status:"approved"})}); } catch(e){}
+  }
+  loadMarks();
+}
 
 document.getElementById("today-date").textContent =
     new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
@@ -314,6 +361,7 @@ async function loadMarks() {
     root.innerHTML = '<div class="text-gray-400 font-mono text-sm">Loading marks…</div>';
     const status = document.getElementById("filter-status").value;
     const source = document.getElementById("filter-source").value;
+    const type = document.getElementById("filter-type").value;
     const sort = document.getElementById("filter-sort").value;
     const minScore = parseFloat(document.getElementById("filter-min-score").value) || 0;
     try {
@@ -323,10 +371,12 @@ async function loadMarks() {
         if (!Array.isArray(list)) { root.innerHTML = '<div class="text-gray-500 italic">' + (list && list.error ? escapeHtml(list.error) : "Unable to load marks.") + '</div>'; return; }
         let filtered = list;
         if (source) filtered = filtered.filter(m => m.source_name === source);
+        if (type) filtered = filtered.filter(m => classifyType(m.source_name) === type);
         if (minScore > 0) filtered = filtered.filter(m => (m.relevance_score || 0) >= minScore);
         if (sort === "score") filtered.sort((a, b) => (b.relevance_score || 0) - (a.relevance_score || 0));
         else filtered.sort((a, b) => new Date((b.created_at || "").replace(" ", "T")) - new Date((a.created_at || "").replace(" ", "T")));
         if (!filtered.length) { root.innerHTML = '<div class="text-gray-500 italic">No marks match these filters.</div>'; return; }
+        marksVisible = filtered;
         root.innerHTML = filtered.map(renderMarkRow).join("");
     } catch (e) {
         root.innerHTML = '<div class="text-red-700 italic">Failed to load marks.</div>';
@@ -349,6 +399,7 @@ function renderMarkRow(m) {
     return '<article class="editorial-card p-5 mb-3" id="mark-' + m.id + '">'
         + '<div class="flex flex-wrap items-center gap-2 mb-2">'
         + statusPill(m.status || "pending")
+        + '<span class="pill" style="' + (TYPE_STYLE[classifyType(m.source_name)]||'') + '">' + (TYPE_LABELS[classifyType(m.source_name)]||'') + '</span>'
         + '<span class="pill pill-source">' + escapeHtml(src) + '</span>'
         + '<span class="text-[10px] font-mono text-gray-400">' + dt + ' · ' + rel + ' · score ' + score + '</span>'
         + '</div>'

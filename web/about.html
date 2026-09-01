@@ -1,6 +1,15 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-B6TKVV8MJD"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-B6TKVV8MJD');
+</script>
+
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Market | ChipMonk</title>
@@ -42,7 +51,10 @@
             <div class="flex items-center gap-4 md:gap-8 text-sm">
                 <a href="/blog" class="font-semibold nav-link">Insights</a>
                 <a href="/companies" class="font-semibold nav-link">Companies</a>
+                <a href="/aschenbrenner" class="font-semibold nav-link">Thesis</a>
                 <a href="/about" class="font-semibold nav-link">Market</a>
+<a href="/hardware/" class="font-semibold nav-link">Hardware</a>
+<a href="/view2/" class="font-semibold nav-link">Daily</a>
             </div>
         </nav>
     </header>
@@ -131,13 +143,6 @@
                     </ul>
                 </section>
 
-                <section class="editorial-card p-8 bg-gray-50">
-                    <div class="section-label"><span class="text-gray-400">04</span> Method</div>
-                    <h2 class="font-serif text-2xl font-bold mb-4">What ChipMonk Tracks</h2>
-                    <p class="leading-relaxed text-gray-700">
-                        Primary-source feeds from <span class="font-mono text-sm">semiwiki</span>, <span class="font-mono text-sm">EE Times</span>, <span class="font-mono text-sm">DigiTimes</span>, <span class="font-mono text-sm">SemiAnalysis</span>, <span class="font-mono text-sm">IEEE Spectrum</span>, and 10 more. Items are scored by a 4-tier LLM chain (qwen3-next:80b → Haiku → minimax-m2.7 → llama3.2:1b) for chip-hardware relevance, then enriched with a 3-paragraph WHAT/WHY/ENTITIES summary. The <a href="/blog" class="font-semibold text-blue-700">Insights feed</a> publishes daily.
-                    </p>
-                </section>
             </div>
         </div>
     </main>

@@ -1,6 +1,15 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-B6TKVV8MJD"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-B6TKVV8MJD');
+</script>
+
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ChipMonk — Silicon Intelligence Hub</title>
@@ -66,9 +75,8 @@
 <body class="bg-paper text-editorial-charcoal">
     <header class="border-b border-gray-200 bg-white">
         <div class="bg-paper border-b border-gray-200">
-            <div class="mx-auto max-w-7xl px-6 py-1.5 flex justify-between text-xs font-mono text-gray-500 uppercase tracking-wider">
+            <div class="mx-auto max-w-7xl px-6 py-1.5 text-xs font-mono text-gray-500 uppercase tracking-wider">
                 <span id="today-date"></span>
-                <span>Network Status: Active</span>
             </div>
         </div>
         <nav class="flex items-center justify-between px-6 lg:px-8 py-4 lg:py-6">
@@ -79,7 +87,10 @@
             <div class="flex items-center gap-4 md:gap-8 text-sm">
                 <a href="/blog" class="font-semibold nav-link">Insights</a>
                 <a href="/companies" class="font-semibold nav-link">Companies</a>
+                <a href="/aschenbrenner" class="font-semibold nav-link">Thesis</a>
                 <a href="/about" class="font-semibold nav-link">Market</a>
+<a href="/hardware/" class="font-semibold nav-link">Hardware</a>
+<a href="/view2/" class="font-semibold nav-link">Daily</a>
             </div>
         </nav>
     </header>
@@ -100,12 +111,12 @@
                             <span class="font-serif group-hover:text-gray-600">Market</span>
                             <span class="text-gray-400 group-hover:translate-x-1 transition">→</span>
                         </a>
-                        <a href="/blog.rss" class="flex items-center justify-between group">
-                            <span class="font-serif group-hover:text-gray-600">RSS Feed</span>
+                        <a href="/hardware/" class="flex items-center justify-between group">
+                            <span class="font-serif group-hover:text-gray-600">Hardware</span>
                             <span class="text-gray-400 group-hover:translate-x-1 transition">→</span>
                         </a>
-                        <a href="/dashboard" class="flex items-center justify-between group">
-                            <span class="font-serif group-hover:text-gray-600">Dashboard</span>
+                        <a href="/blog.rss" class="flex items-center justify-between group">
+                            <span class="font-serif group-hover:text-gray-600">RSS Feed</span>
                             <span class="text-gray-400 group-hover:translate-x-1 transition">→</span>
                         </a>
                     </nav>
@@ -136,6 +147,15 @@
                     </div>
                 </article>
 
+                <a href="/hardware/" class="editorial-card p-6 md:p-8 mb-10 block group">
+                    <div class="flex justify-between items-center mb-3 gap-3">
+                        <span class="pill">Hardware</span>
+                        <span class="font-mono text-[10px] uppercase tracking-widest text-gray-500 group-hover:text-editorial-charcoal">Open catalogue →</span>
+                    </div>
+                    <h2 class="font-serif text-2xl md:text-3xl font-bold leading-tight mb-3">ESP32 / Tab5 catalogue</h2>
+                    <p class="text-gray-500 text-sm leading-relaxed">Chips we saved on X, photos and blueprints, VE project use cases, and a priced wishlist. Tab5, PaperMono, Pico W, Pi Zero 2 W — stock checked 29 Aug 2026.</p>
+                </a>
+
                 <section>
                     <div class="flex justify-between items-end mb-6 border-b border-editorial-charcoal pb-2">
                         <h2 class="font-serif text-2xl font-bold tracking-tight">Latest Insights</h2>
@@ -154,27 +174,47 @@
                     <h3 class="font-serif text-lg font-bold">Data &amp; Markets</h3>
                 </div>
 
-                <figure class="py-4 border-y border-gray-200">
-                    <figcaption class="text-[10px] font-mono uppercase tracking-widest text-gray-500 mb-6">AI Chip Market (USD bn)</figcaption>
-                    <div class="flex items-end gap-6 h-32 px-1">
+                                <figure class="py-4 border-y border-gray-200" id="soxx-figure">
+                    <figcaption class="text-[10px] font-mono uppercase tracking-widest text-gray-500 mb-6">SOXX · iShares Semiconductor ETF</figcaption>
+                    <div class="flex items-end gap-6 h-32 px-1" id="soxx-bars">
                         <div class="flex-1 flex flex-col items-center gap-2">
-                            <div class="w-full bg-gray-200 relative" style="height:18%;">
-                                <span class="absolute -top-6 left-1/2 -translate-x-1/2 text-xs font-bold">$71.3</span>
+                            <div class="w-full bg-gray-200 relative" id="soxx-bar-prior" style="height:18%;">
+                                <span class="absolute -top-6 left-1/2 -translate-x-1/2 text-xs font-bold" id="soxx-prior">—</span>
                             </div>
-                            <span class="text-[10px] font-mono text-gray-400">2024</span>
+                            <span class="text-[10px] font-mono text-gray-400" id="soxx-prior-label">1Y ago</span>
                         </div>
                         <div class="flex-1 flex flex-col items-center gap-2">
-                            <div class="w-full bg-editorial-charcoal h-full relative">
-                                <span class="absolute -top-6 left-1/2 -translate-x-1/2 text-xs font-bold">$400</span>
+                            <div class="w-full bg-editorial-charcoal h-full relative" id="soxx-bar-now">
+                                <span class="absolute -top-6 left-1/2 -translate-x-1/2 text-xs font-bold" id="soxx-now">—</span>
                             </div>
-                            <span class="text-[10px] font-mono text-gray-400">2029E</span>
+                            <span class="text-[10px] font-mono text-gray-400" id="soxx-now-label">Today</span>
                         </div>
+                    </div>
+                    <div class="mt-4 flex justify-between items-baseline text-[10px] font-mono uppercase tracking-widest text-gray-500">
+                        <span id="soxx-yoy" class="font-bold tracking-normal normal-case text-sm text-gray-700">Loading…</span>
+                        <span id="soxx-asof" class="text-gray-400"></span>
                     </div>
                 </figure>
 
-                <figure class="py-4 border-b border-gray-200">
-                    <figcaption class="text-[10px] font-mono uppercase tracking-widest text-gray-500 mb-3">Accelerator Share</figcaption>
-                    <div id="accelerator-share-bar" class="relative h-9 w-full bg-gray-100 flex"></div>
+                <figure class="py-4 border-b border-gray-200" id="movers-figure">
+                    <figcaption class="text-[10px] font-mono uppercase tracking-widest text-gray-500 mb-3">Top Movers · 1 Year</figcaption>
+                    <ol id="movers-list" class="space-y-2 text-xs">
+                        <li class="text-gray-400 italic">Loading…</li>
+                    </ol>
+                </figure>
+
+                <figure class="py-4 border-b border-gray-200" id="daily-figure">
+                    <figcaption class="text-[10px] font-mono uppercase tracking-widest text-gray-500 mb-3">Today's Movers</figcaption>
+                    <ol id="daily-list" class="space-y-2 text-xs">
+                        <li class="text-gray-400 italic">Loading…</li>
+                    </ol>
+                </figure>
+
+                <figure class="py-4 border-b border-gray-200" id="extremes-figure">
+                    <figcaption class="text-[10px] font-mono uppercase tracking-widest text-gray-500 mb-3">At 52-Week Extremes</figcaption>
+                    <div id="extremes-list" class="text-xs space-y-2">
+                        <div class="text-gray-400 italic">Loading…</div>
+                    </div>
                 </figure>
 
                 <div class="editorial-card p-4 bg-gray-50 border-gray-100">
@@ -184,7 +224,7 @@
                     </div>
                 </div>
 
-                <div class="editorial-card p-4">
+                <div class="editorial-card p-4" id="sources-card" style="display:none;">
                     <h4 class="font-mono text-[10px] uppercase tracking-widest text-gray-500 mb-3">Sources</h4>
                     <div id="sources-list" class="text-xs space-y-1">
                         <div class="text-gray-400 italic">Loading…</div>
@@ -205,6 +245,7 @@
                 <a href="/blog" class="nav-link">Insights</a>
                 <a href="/briefs" class="nav-link">Dispatches</a>
                 <a href="/companies" class="nav-link">Companies</a>
+                <a href="/hardware/" class="nav-link">Hardware</a>
                 <a href="/about" class="nav-link">Market</a>
                 <a href="/sitemap.xml" class="nav-link">Sitemap</a>
             </div>
@@ -244,6 +285,16 @@ function renderMarkdown(md) {
     }
     if (inList) html += '</ul>';
     return html;
+}
+
+function isBadSummary(note) {
+    if (!note) return true;
+    const s = note.trim();
+    if (!s) return true;
+    const head = s.slice(0, 400).toLowerCase();
+    if (/^(i cannot|i can't|i'm unable|i am unable|i appreciate your request|i apologize|i'm sorry|i am sorry|unfortunately, i|as an ai)\b/.test(head)) return true;
+    if (/\b(behind a paywall|content is not accessible|subscription landing page|unable to (provide|complete|summarize|access)|cannot (summarize|complete this task|provide the))\b/.test(head)) return true;
+    return false;
 }
 
 function extractHeadline(content) {
@@ -311,7 +362,8 @@ function trackerPill(t) {
 async function loadFeed() {
     const feedEl = document.getElementById('feed');
     try {
-        const items = await (await fetch('/api/showcase')).json();
+        const raw = await (await fetch('/api/showcase')).json();
+        const items = raw.filter(i => !isBadSummary(i.note));
         if (!items.length) { feedEl.innerHTML = '<div class="col-span-full text-center py-12 text-gray-500">No insights yet.</div>'; return; }
         feedEl.innerHTML = items.slice(0, 6).map(item => {
             const dt = new Date(item.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -350,39 +402,49 @@ async function loadTrackers() {
 }
 
 async function loadSources() {
+    const card = document.getElementById('sources-card');
     const el = document.getElementById('sources-list');
     try {
         const r = await fetch('/api/marks/sources', { credentials: 'same-origin' });
-        if (r.status === 401) { el.innerHTML = '<div class="text-gray-400 italic">Source breakdown is admin-only.</div>'; return; }
+        if (r.status === 401) { if (card) card.style.display = 'none'; return; }
         const list = await r.json();
-        if (!Array.isArray(list) || !list.length) { el.innerHTML = '<div class="text-gray-400 italic">No source activity yet.</div>'; return; }
+        if (!Array.isArray(list) || !list.length) { if (card) card.style.display = 'none'; return; }
         el.innerHTML = list.slice(0, 8).map(s => `
             <div class="flex justify-between border-b border-gray-100 last:border-b-0 py-1">
                 <span class="text-gray-700">${s.source_name.replace(/_/g, ' ')}</span>
                 <span class="font-mono text-gray-500">${s.n}</span>
             </div>`).join('');
-    } catch { el.innerHTML = '<div class="text-gray-400 italic">Source list unavailable.</div>'; }
+        if (card) card.style.display = '';
+    } catch { if (card) card.style.display = 'none'; }
 }
 
-async function loadAcceleratorShare() {
-    const target = document.getElementById('accelerator-share-bar');
-    if (!target) return;
-    const FALLBACK = [{ label: 'NVIDIA', share: 80 }, { label: 'Other', share: 20 }];
-    let segs = FALLBACK;
+async function loadTopMovers() {
+    const el = document.getElementById('movers-list');
+    if (!el) return;
     try {
-        const r = await fetch('/api/config/accelerator-share');
+        const r = await fetch('/api/markets/chip-quotes');
+        if (!r.ok) throw new Error('quotes ' + r.status);
         const d = await r.json();
-        if (d && Array.isArray(d.segments) && d.segments.length) segs = d.segments;
-    } catch {}
-    const otherTones = ['bg-gray-300', 'bg-gray-400', 'bg-gray-500', 'bg-gray-600'];
-    target.innerHTML = segs.map((s, i) => {
-        const lead = i === 0;
-        const bg = lead ? 'bg-editorial-charcoal' : (otherTones[(i - 1) % otherTones.length]);
-        const text = lead ? 'text-white' : 'text-gray-800';
-        const label = lead ? `${s.label} · ${s.share}%` : s.label.toUpperCase();
-        const pad = lead ? 'px-3' : 'px-2';
-        return `<div class="h-full ${bg} flex items-center ${pad}" style="width:${s.share}%;"><span class="text-[10px] ${text} font-bold whitespace-nowrap">${label}</span></div>`;
-    }).join('');
+        const items = Object.values(d.quotes || {}).filter(q => typeof q.yoy_pct === 'number');
+        items.sort((a, b) => b.yoy_pct - a.yoy_pct);
+        const top = items.slice(0, 5);
+        if (!top.length) { el.innerHTML = '<li class="text-gray-400 italic">No data.</li>'; return; }
+        el.innerHTML = top.map((q, i) => {
+            const sign = q.yoy_pct >= 0 ? '+' : '';
+            const col = q.yoy_pct >= 0 ? 'text-emerald-700' : 'text-red-700';
+            const price = q.price >= 100 ? '$' + Math.round(q.price) : '$' + q.price.toFixed(2);
+            return `<li class="flex justify-between items-baseline gap-2 border-b border-gray-100 last:border-b-0 pb-1.5 last:pb-0">
+                <span class="flex items-baseline gap-2 min-w-0">
+                    <span class="font-mono text-[10px] text-gray-400 w-3">${i + 1}</span>
+                    <span class="font-mono font-bold tracking-wider">${q.symbol}</span>
+                    <span class="text-gray-400 font-mono text-[10px]">${price}</span>
+                </span>
+                <span class="font-mono font-bold ${col}">${sign}${q.yoy_pct.toFixed(0)}%</span>
+            </li>`;
+        }).join('');
+    } catch {
+        el.innerHTML = '<li class="text-gray-400 italic">Movers unavailable.</li>';
+    }
 }
 
 async function loadSubCount() {
@@ -419,10 +481,106 @@ document.getElementById('subscribe-form').addEventListener('submit', async (e) =
     } finally { btn.disabled = false; }
 });
 
+
+async function loadSoxx() {
+    const fig = document.getElementById('soxx-figure');
+    if (!fig) return;
+    try {
+        const d = await (await fetch('/api/markets/soxx')).json();
+        if (!d || d.error || d.price == null) return;
+        const prior = Number(d.year_ago);
+        const now = Number(d.price);
+        const yoy = Number(d.yoy_pct);
+        const fmt = v => v >= 100 ? '$' + v.toFixed(0) : '$' + v.toFixed(2);
+        document.getElementById('soxx-prior').textContent = fmt(prior);
+        document.getElementById('soxx-now').textContent = fmt(now);
+        const ratio = (prior && now) ? Math.max(0.08, Math.min(1, prior / now)) : 0.5;
+        document.getElementById('soxx-bar-prior').style.height = (ratio * 100).toFixed(1) + '%';
+        const sign = yoy >= 0 ? '+' : '';
+        const col = yoy >= 0 ? '#15803d' : '#b91c1c';
+        const yoyEl = document.getElementById('soxx-yoy');
+        yoyEl.textContent = `${sign}${yoy}% YoY`;
+        yoyEl.style.color = col;
+        if (d.asOf) {
+            const dt = new Date(d.asOf);
+            document.getElementById('soxx-asof').textContent =
+                'as of ' + dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        }
+        const priorLabel = document.getElementById('soxx-prior-label');
+        if (d.asOf) {
+            const past = new Date(new Date(d.asOf).getTime() - 365*86400000);
+            priorLabel.textContent = past.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+            document.getElementById('soxx-now-label').textContent = new Date(d.asOf).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+        }
+    } catch {}
+}
+
+loadSoxx();
 loadBrief();
 loadTrackers().then(loadFeed);
 loadSources();
-loadAcceleratorShare();
+
+async function loadDailyMovers() {
+    const el = document.getElementById('daily-list');
+    if (!el) return;
+    try {
+        const r = await fetch('/api/markets/chip-quotes');
+        if (!r.ok) throw new Error('quotes ' + r.status);
+        const d = await r.json();
+        const items = Object.values(d.quotes || {})
+            .filter(q => typeof q.day_pct === 'number');
+        items.sort((a, b) => Math.abs(b.day_pct) - Math.abs(a.day_pct));
+        const top = items.slice(0, 5);
+        if (!top.length) { el.innerHTML = '<li class="text-gray-400 italic">No data.</li>'; return; }
+        el.innerHTML = top.map(q => {
+            const sign = q.day_pct >= 0 ? '+' : '';
+            const col = q.day_pct >= 0 ? 'text-emerald-700' : 'text-red-700';
+            return `<li class="flex justify-between items-baseline gap-2 border-b border-gray-100 last:border-b-0 pb-1.5 last:pb-0">
+                <span class="font-mono font-bold tracking-wider">${q.symbol}</span>
+                <span class="font-mono font-bold ${col}">${sign}${q.day_pct.toFixed(2)}%</span>
+            </li>`;
+        }).join('');
+    } catch {
+        el.innerHTML = '<li class="text-gray-400 italic">Daily data unavailable.</li>';
+    }
+}
+
+async function loadExtremes() {
+    const el = document.getElementById('extremes-list');
+    if (!el) return;
+    try {
+        const r = await fetch('/api/markets/chip-quotes');
+        if (!r.ok) throw new Error('quotes ' + r.status);
+        const d = await r.json();
+        const items = Object.values(d.quotes || {})
+            .filter(q => typeof q.price === 'number' && typeof q.year_high === 'number' && typeof q.year_low === 'number');
+        const nearHigh = items.filter(q => (q.year_high - q.price) / q.year_high <= 0.05)
+            .sort((a, b) => (a.year_high - a.price) - (b.year_high - b.price));
+        const nearLow = items.filter(q => (q.price - q.year_low) / q.year_low <= 0.10)
+            .sort((a, b) => (a.price - a.year_low) - (b.price - b.year_low));
+        const fmt = sym => `<span class="font-mono font-bold tracking-wider">${sym}</span>`;
+        const blocks = [];
+        if (nearHigh.length) {
+            blocks.push(`<div>
+                <div class="text-[10px] font-mono uppercase tracking-widest text-emerald-700 mb-1">Near 52w high</div>
+                <div class="flex flex-wrap gap-x-3 gap-y-1">${nearHigh.map(q => fmt(q.symbol)).join('')}</div>
+            </div>`);
+        }
+        if (nearLow.length) {
+            blocks.push(`<div>
+                <div class="text-[10px] font-mono uppercase tracking-widest text-red-700 mb-1">Near 52w low</div>
+                <div class="flex flex-wrap gap-x-3 gap-y-1">${nearLow.map(q => fmt(q.symbol)).join('')}</div>
+            </div>`);
+        }
+        el.innerHTML = blocks.length ? blocks.join('') : '<div class="text-gray-400 italic">No extremes today.</div>';
+    } catch {
+        el.innerHTML = '<div class="text-gray-400 italic">Range data unavailable.</div>';
+    }
+}
+
+loadDailyMovers();
+loadExtremes();
+loadTopMovers();
 loadSubCount();
 </script>
 </body>

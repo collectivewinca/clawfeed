@@ -1,6 +1,15 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-B6TKVV8MJD"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-B6TKVV8MJD');
+</script>
+
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Insights | ChipMonk</title>
@@ -29,6 +38,9 @@
         .summary-block li { margin: 4px 0; color: var(--ink-soft); list-style: disc; }
         .scrollbar-hide::-webkit-scrollbar { display: none; }
         .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+        .disclosure summary::-webkit-details-marker { display: none; }
+        .disclosure[open] .disclosure-caret { transform: rotate(90deg); }
+        .disclosure[open] summary span.text-gray-400:last-child { opacity: 0; }
     </style>
 </head>
 <body>
@@ -47,7 +59,10 @@
             <div class="flex items-center gap-4 md:gap-8 text-sm">
                 <a href="/blog" class="font-semibold nav-link">Insights</a>
                 <a href="/companies" class="font-semibold nav-link">Companies</a>
+                <a href="/aschenbrenner" class="font-semibold nav-link">Thesis</a>
                 <a href="/about" class="font-semibold nav-link">Market</a>
+<a href="/hardware/" class="font-semibold nav-link">Hardware</a>
+<a href="/view2/" class="font-semibold nav-link">Daily</a>
             </div>
         </nav>
     </header>
@@ -60,7 +75,7 @@
         </header>
 
         <!-- Filter chips (sources) -->
-        <div class="mb-10 -mx-4 px-4 overflow-x-auto pb-3 scrollbar-hide">
+        <div class="hidden">
             <div id="filters" class="flex gap-2 min-w-max">
                 <span class="text-[10px] font-mono text-gray-400 self-center mr-2">FILTER · SOURCE</span>
                 <button data-source="" class="filter-btn text-[11px] font-serif text-white bg-editorial-charcoal px-4 py-2 border border-editorial-charcoal">All</button>
@@ -81,33 +96,37 @@
         </div>
         <p id="subscribe-status" class="text-xs font-mono text-gray-500 -mt-8 mb-12" style="min-height: 1rem;"></p>
 
-        <!-- Latest Brief -->
-        <section class="mb-16">
-            <div class="flex items-center justify-between mb-4">
+        <!-- Latest Brief (collapsible) -->
+        <details class="mb-8 group disclosure">
+            <summary class="cursor-pointer list-none flex items-center justify-between py-3 border-b border-gray-200 select-none">
                 <h2 class="font-serif text-xl font-bold tracking-tight flex items-center gap-2">
                     <span class="w-2 h-2 bg-red-700"></span>
                     Today's Dispatch
+                    <span class="disclosure-caret text-gray-400 ml-2 inline-block transition-transform text-sm">&#9656;</span>
                 </h2>
+                <span class="text-[10px] font-mono uppercase tracking-widest text-gray-400">Expand</span>
+            </summary>
+            <div class="mt-4 flex justify-end -mt-2 mb-3">
                 <a href="/briefs" class="text-[10px] font-mono uppercase tracking-widest text-gray-500 hover:text-editorial-charcoal">All dispatches &rarr;</a>
             </div>
             <div id="latest-brief"></div>
-        </section>
+        </details>
 
-        <!-- Trackers -->
-        <section class="mb-16">
-            <h2 class="font-serif text-xl font-bold tracking-tight mb-4 flex items-center gap-2">
-                <span class="w-2 h-2 bg-red-700"></span>
-                Entity Trackers
-            </h2>
-            <div id="trackers"></div>
-        </section>
+        <!-- Trackers (collapsible) -->
+        <details class="mb-12 group disclosure">
+            <summary class="cursor-pointer list-none flex items-center justify-between py-3 border-b border-gray-200 select-none">
+                <h2 class="font-serif text-xl font-bold tracking-tight flex items-center gap-2">
+                    <span class="w-2 h-2 bg-red-700"></span>
+                    Entity Trackers
+                    <span class="disclosure-caret text-gray-400 ml-2 inline-block transition-transform text-sm">&#9656;</span>
+                </h2>
+                <span class="text-[10px] font-mono uppercase tracking-widest text-gray-400">Expand</span>
+            </summary>
+            <div id="trackers" class="mt-5"></div>
+        </details>
 
         <!-- All approved -->
         <section>
-            <h2 class="font-serif text-xl font-bold tracking-tight mb-6 flex items-center gap-2 border-b border-gray-200 pb-2">
-                <span class="w-2 h-2 bg-red-700"></span>
-                All Insights
-            </h2>
             <div id="blog-posts" class="space-y-12"></div>
         </section>
     </main>
@@ -152,6 +171,16 @@ function renderMarkdown(md) {
     }
     if (inList) html += '</ul>';
     return html;
+}
+
+function isBadSummary(note) {
+    if (!note) return true;
+    const s = note.trim();
+    if (!s) return true;
+    const head = s.slice(0, 400).toLowerCase();
+    if (/^(i cannot|i can't|i'm unable|i am unable|i appreciate your request|i apologize|i'm sorry|i am sorry|unfortunately, i|as an ai)\b/.test(head)) return true;
+    if (/\b(behind a paywall|content is not accessible|subscription landing page|unable to (provide|complete|summarize|access)|cannot (summarize|complete this task|provide the))\b/.test(head)) return true;
+    return false;
 }
 
 function extractHeadline(content) {
@@ -238,39 +267,12 @@ async function loadTrackers() {
     } catch { root.innerHTML = empty; }
 }
 
-function renderInsights() {
-    const container = document.getElementById('blog-posts');
-    const items = activeSource ? allItems.filter(i => i.source_name === activeSource) : allItems;
-    if (!items.length) {
-        container.innerHTML = `<div class="text-center py-16 border border-gray-200 text-gray-500 italic">No insights for "${activeSource}".</div>`;
-        return;
-    }
-    container.innerHTML = items.map(item => {
-        const dt = new Date(item.created_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-        const src = (item.source_name || 'research').replace(/_/g, ' ');
-        const isRealUrl = item.url && /^https?:\/\//.test(item.url);
-        const noteHtml = item.note ? renderMarkdown(item.note) : '<p class="italic text-gray-400">Summary pending.</p>';
-        const tPill = trackerPill(trackerForMark(item));
-        return `
-            <article class="border-b border-gray-100 pb-12 last:border-b-0">
-                <div class="flex flex-wrap items-center gap-3 mb-3">
-                    <span class="text-[10px] font-mono uppercase tracking-[0.2em] text-red-700 px-2 py-0.5 bg-red-50 border border-red-100">${src}</span>
-                    ${tPill}
-                    <span class="text-[10px] font-mono text-gray-400">${dt} · score ${Math.round((item.relevance_score||0)*100)}%</span>
-                </div>
-                <h3 class="font-serif text-3xl font-bold leading-tight mb-4">${item.title}</h3>
-                <div class="summary-block">${noteHtml}</div>
-                ${isRealUrl ? `<a href="${item.url}" target="_blank" rel="noopener" class="inline-block mt-4 text-xs font-mono uppercase tracking-widest text-blue-700">Read source →</a>` : ''}
-            </article>`;
-    }).join('');
-}
-
 function buildFilters() {
     const sources = Array.from(new Set(allItems.map(i => i.source_name).filter(Boolean))).sort();
     const wrap = document.getElementById('filters');
     wrap.innerHTML = `<span class="text-[10px] font-mono text-gray-400 self-center mr-2">FILTER · SOURCE</span>
         <button data-source="" class="filter-btn text-[11px] font-serif px-4 py-2 border ${activeSource===''?'text-white bg-editorial-charcoal border-editorial-charcoal':'border-gray-300 hover:border-editorial-charcoal'}">All</button>` +
-        sources.map(s => `<button data-source="${s}" class="filter-btn text-[11px] font-serif px-4 py-2 border ${activeSource===s?'text-white bg-editorial-charcoal border-editorial-charcoal':'border-gray-300 hover:border-editorial-charcoal'}">#${s.replace(/_/g,' ')}</button>`).join('');
+        sources.map(s => `<button data-source="${cmEsc(s)}" class="filter-btn text-[11px] font-serif px-4 py-2 border ${activeSource===s?'text-white bg-editorial-charcoal border-editorial-charcoal':'border-gray-300 hover:border-editorial-charcoal'}">#${cmEsc(s.replace(/_/g,' '))}</button>`).join('');
     wrap.querySelectorAll('.filter-btn').forEach(b => b.addEventListener('click', () => { activeSource = b.dataset.source; buildFilters(); renderInsights(); }));
 }
 
@@ -308,6 +310,88 @@ document.getElementById('subscribe-form').addEventListener('submit', async (e) =
 loadLatestBrief();
 loadTrackers().then(loadInsights);
 loadSubCount();
+
+// ===================== EDITORIAL OVERRIDE (themed sections) =====================
+const TICKER_SECTOR = {
+  be:'infra',crwv:'infra',nbis:'infra',gev:'infra',ceg:'infra',tln:'infra',vst:'infra',oklo:'infra',vrt:'infra',wolf:'infra',
+  iren:'infra',corz:'infra',apld:'infra',riot:'infra',clsk:'infra',sei:'infra',bitf:'infra',btdr:'infra',psix:'infra',
+  bw:'infra',pump:'infra',hive:'infra',shaz:'infra',wyfi:'infra',orcl:'infra',
+  nvda:'semis',amd:'semis',intc:'semis',tsm:'semis',tsmc:'semis',asml:'semis',avgo:'semis',mu:'semis',qcom:'semis',
+  arm:'semis',amat:'semis',lrcx:'semis',klac:'semis',mpwr:'semis',smci:'semis',anet:'semis',smh:'semis',sndk:'semis'
+};
+const THEMES = [
+  { key:'infra',    label:'AI Infrastructure & Power', icon:'⚡' },
+  { key:'semis',    label:'Semiconductors & Foundry',  icon:'▦' },
+  { key:'research', label:'AI & Research',             icon:'🧠' },
+  { key:'markets',  label:'Markets & Signal',          icon:'📈' }
+];
+const RESEARCH_SOURCES = new Set(['arxiv','pytorch_blog','synced_ai','ieee_spectrum','mit_technology_review']);
+const RESEARCH_TW = new Set(['twitter_ylecun','twitter_demishassabis','twitter_andrewyng','twitter_soumithchintala','twitter_thom_wolf','twitter_ohlennart']);
+function classifyTheme(it){
+  const s = it.source_name || '';
+  if (s.indexOf('stocknews_') === 0){ return TICKER_SECTOR[s.split('_').pop()] || 'markets'; }
+  if (RESEARCH_SOURCES.has(s) || RESEARCH_TW.has(s) || s.indexOf('github') === 0) return 'research';
+  return 'markets';
+}
+function cmEsc(s){ return String(s == null ? '' : s).replace(/[<>&"]/g, function(c){ return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]; }); }
+function cmFpBadge(item){ return item.source_name === 'founders_pick' ? '<span style="font-size:10px;font-family:monospace;text-transform:uppercase;letter-spacing:0.2em;color:#b45309;background:#fffbeb;border:1px solid #fde68a;padding:2px 8px;">★ Founder’s Pick</span>' : ''; }
+function insightCard(item, big){
+  const dt = new Date(item.created_at).toLocaleDateString('en-US', big ? {month:'long',day:'numeric',year:'numeric'} : {month:'short',day:'numeric'});
+  const src = cmEsc((item.source_name || 'research').replace(/_/g,' ').replace(/^stocknews /,''));
+  const isRealUrl = item.url && /^https?:\/\//.test(item.url);
+  const noteHtml = renderMarkdown(item.note);
+  const tPill = trackerPill(trackerForMark(item));
+  const read = isRealUrl ? '<a href="'+cmEsc(item.url)+'" target="_blank" rel="noopener" class="inline-block mt-3 text-[11px] font-mono uppercase tracking-widest text-blue-700">Read source →</a>' : '';
+  if (big){
+    return '<article id="mark-'+cmEsc(item.id)+'" class="editorial-card p-7 mb-12">'
+      + '<div class="flex flex-wrap items-center gap-3 mb-3">'
+      + '<span class="text-[10px] font-mono uppercase tracking-[0.2em] text-white bg-editorial-charcoal px-2 py-0.5">Lead</span>'
+      + '<span class="text-[10px] font-mono uppercase tracking-[0.2em] text-red-700 px-2 py-0.5 bg-red-50 border border-red-100">'+src+'</span>'+tPill+cmFpBadge(item)
+      + '<span class="text-[10px] font-mono text-gray-400">'+dt+'</span></div>'
+      + '<h3 class="font-serif text-4xl font-extrabold leading-tight mb-4">'+cmEsc(item.title)+'</h3>'
+      + '<div class="summary-block">'+noteHtml+'</div>'+read+'</article>';
+  }
+  return '<article id="mark-'+cmEsc(item.id)+'" class="editorial-card p-5 h-full flex flex-col">'
+    + '<div class="flex flex-wrap items-center gap-2 mb-2">'
+    + '<span class="text-[10px] font-mono uppercase tracking-[0.15em] text-red-700 px-1.5 py-0.5 bg-red-50 border border-red-100">'+src+'</span>'+tPill+cmFpBadge(item)
+    + '<span class="text-[10px] font-mono text-gray-400">'+dt+'</span></div>'
+    + '<h3 class="font-serif text-lg font-bold leading-snug mb-2">'+cmEsc(item.title)+'</h3>'
+    + '<div class="summary-block text-sm text-gray-600 flex-1" style="max-height:7.5em;overflow:hidden">'+noteHtml+'</div>'+read+'</article>';
+}
+var cmHashScrolled = false; // cm-hashscroll v1
+function cmHashScroll(attempt){
+  if (cmHashScrolled) return;
+  var m = /^#mark-(\d+)$/.exec(location.hash || '');
+  if (!m) return;
+  var el = document.getElementById('mark-' + m[1]);
+  if (el){ cmHashScrolled = true; el.scrollIntoView({behavior:'smooth', block:'center'}); return; }
+  if (attempt < 6) setTimeout(function(){ cmHashScroll(attempt + 1); }, 500);
+}
+function renderInsights(){
+  const container = document.getElementById('blog-posts');
+  let items = (allItems || []).filter(i => !isBadSummary(i.note));
+  if (activeSource) items = items.filter(i => i.source_name === activeSource);
+  if (!items.length){ container.innerHTML = '<div class="text-center py-16 border border-gray-200 text-gray-500 italic">No insights yet.</div>'; return; }
+  const featured = items[0];
+  const groups = {}; THEMES.forEach(function(th){ groups[th.key] = []; });
+  items.slice(1).forEach(function(it){ groups[classifyTheme(it)].push(it); });
+  let html = insightCard(featured, true);
+  THEMES.forEach(function(th){
+    const g = groups[th.key];
+    if (!g || !g.length) return;
+    html += '<section class="mb-14">'
+      + '<h2 class="font-serif text-xl font-bold tracking-tight mb-5 flex items-center gap-2 border-b-2 border-editorial-charcoal pb-2">'
+      + '<span>'+th.icon+'</span> '+th.label
+      + '<span class="text-[10px] font-mono text-gray-400 ml-1">'+g.length+'</span></h2>'
+      + '<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 items-stretch">'
+      + g.slice(0,24).map(function(it){ return insightCard(it,false); }).join('')
+      + '</div></section>';
+  });
+  container.innerHTML = html;
+  cmHashScroll(0);
+}
+// =================== END EDITORIAL OVERRIDE ===================
+
 </script>
 </body>
 </html>

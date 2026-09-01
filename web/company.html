@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-B6TKVV8MJD"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-B6TKVV8MJD');
+</script>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Company | ChipMonk</title>
+    <meta name="description" content="Per-company silicon intelligence — live quote, 90-day chart, and recent insights — from ChipMonk.">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;800;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script>tailwind.config={theme:{extend:{fontFamily:{serif:["Playfair Display","serif"],sans:["Inter","sans-serif"],mono:["JetBrains Mono","monospace"]},colors:{paper:"#FCFCFA","editorial-charcoal":"#121212"}}}};</script>
+    <style>
+        :root { --paper:#FCFCFA; --ink:#121212; --ink-soft:#334155; --muted:#64748B; --border:#E5E7EB; --accent:#2563EB; }
+        body { background: var(--paper); color: var(--ink); -webkit-font-smoothing: antialiased; font-family: Inter, sans-serif; }
+        .editorial-card { background: white; border: 1px solid var(--border); transition: border-color .15s; }
+        .editorial-card:hover { border-color: var(--ink); }
+        .nav-link { color: var(--ink-soft); font-weight: 500; transition: color .15s; }
+        .nav-link:hover { color: var(--ink); }
+        .stat-label { font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+        .stat-value { font-family: 'JetBrains Mono', monospace; font-size: 22px; font-weight: 700; line-height: 1.1; color: var(--ink); }
+        .stat-cell { padding: 14px 18px; border-right: 1px solid var(--border); }
+        .stat-cell:last-child { border-right: none; }
+        .tag-pill { display:inline-flex; align-items:center; padding:2px 8px; font-size:10px; font-weight:500; background:#F1F5F9; color:var(--ink-soft); border-radius:999px; font-family:'JetBrains Mono', monospace; }
+        .skel { background: linear-gradient(90deg, #F1F5F9 0%, #E8EDF5 50%, #F1F5F9 100%); background-size: 200% 100%; animation: skel 1.4s infinite; border-radius: 2px; }
+        @keyframes skel { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+        .snippet { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    </style>
+</head>
+<body class="bg-paper text-editorial-charcoal">
+    <header class="border-b border-gray-200 bg-white">
+        <div class="bg-paper border-b border-gray-200">
+            <div class="mx-auto max-w-7xl px-6 py-1.5 flex justify-between text-xs font-mono text-gray-500 uppercase tracking-wider">
+                <span id="today-date"></span>
+                <span>Network Status: Active</span>
+            </div>
+        </div>
+        <nav class="flex items-center justify-between px-6 lg:px-8 py-4 lg:py-6">
+            <a href="/" class="flex items-center gap-2">
+                <svg class="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="10" width="12" height="10" rx="2"/><circle cx="6.5" cy="8.5" r="1.5"/><circle cx="11.5" cy="8.5" r="1.5"/><path d="M15 14 C 22 14 22 4 17 3"/><line x1="3" y1="14" x2="1" y2="14"/><line x1="3" y1="17" x2="1" y2="17"/></svg>
+                <span class="hidden sm:inline text-xl font-serif font-semibold">ChipMonk</span>
+            </a>
+            <div class="flex items-center gap-4 md:gap-8 text-sm">
+                <a href="/blog" class="font-semibold nav-link">Insights</a>
+                <a href="/companies" class="font-semibold nav-link" style="color:var(--ink)">Companies</a>
+                <a href="/about" class="font-semibold nav-link">Market</a>
+<a href="/hardware/" class="font-semibold nav-link">Hardware</a>
+<a href="/view2/" class="font-semibold nav-link">Daily</a>
+            </div>
+        </nav>
+    </header>
+
+    <main class="max-w-5xl mx-auto px-6 lg:px-8 pt-8 pb-20">
+        <div class="mb-6">
+            <a href="/companies" class="text-[11px] font-mono uppercase tracking-widest text-gray-500 hover:text-editorial-charcoal">&larr; Companies</a>
+        </div>
+
+        <header class="border-b-4 border-editorial-charcoal pb-6 mb-8">
+            <div class="flex items-start justify-between gap-6 flex-wrap">
+                <div class="min-w-0">
+                    <span id="sym-tag" class="font-mono text-2xl md:text-3xl font-bold tracking-widest text-editorial-charcoal"></span>
+                    <h1 id="company-name" class="font-serif text-4xl md:text-5xl font-extrabold tracking-tight mt-2">
+                        <span class="skel inline-block w-72 h-10"></span>
+                    </h1>
+                    <div class="flex items-center gap-3 mt-3 flex-wrap" id="header-meta"></div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Hero stat row -->
+        <div id="stat-row" class="editorial-card mb-8 grid grid-cols-2 md:grid-cols-5 overflow-hidden">
+            <div class="stat-cell"><div class="stat-label">Price</div><div class="stat-value" id="stat-price"><span class="skel inline-block w-20 h-5"></span></div></div>
+            <div class="stat-cell"><div class="stat-label">Today</div><div class="stat-value" id="stat-day"><span class="skel inline-block w-16 h-5"></span></div></div>
+            <div class="stat-cell"><div class="stat-label">1-Year</div><div class="stat-value" id="stat-yoy"><span class="skel inline-block w-16 h-5"></span></div></div>
+            <div class="stat-cell"><div class="stat-label">52w High</div><div class="stat-value" id="stat-hi"><span class="skel inline-block w-20 h-5"></span></div></div>
+            <div class="stat-cell"><div class="stat-label">52w Low</div><div class="stat-value" id="stat-lo"><span class="skel inline-block w-20 h-5"></span></div></div>
+        </div>
+
+        <!-- Sparkline card -->
+        <div class="editorial-card p-6 mb-10">
+            <div class="flex items-center justify-between mb-3">
+                <div class="font-mono text-[10px] uppercase tracking-widest text-gray-500">90-Day Price &middot; Daily Close</div>
+                <div class="font-mono text-[10px] uppercase tracking-widest text-gray-400" id="spark-asof"></div>
+            </div>
+            <div id="spark-host" class="w-full">
+                <div class="skel w-full" style="height:140px"></div>
+            </div>
+        </div>
+
+        <!-- Description + tags -->
+        <section class="mb-12">
+            <p id="company-desc" class="text-base text-gray-700 leading-relaxed mb-4"><span class="skel inline-block w-full h-4"></span></p>
+            <div id="tag-row" class="flex flex-wrap gap-1.5"></div>
+        </section>
+
+        <!-- Recent insights -->
+        <section>
+            <header class="border-b border-gray-200 pb-2 mb-5 flex items-center justify-between">
+                <h2 class="font-serif text-2xl font-bold tracking-tight">Recent Insights</h2>
+                <span id="insights-count" class="font-mono text-[10px] uppercase tracking-widest text-gray-500"></span>
+            </header>
+            <div id="insights-list" class="space-y-4">
+                <div class="editorial-card p-5"><div class="skel w-1/3 h-4 mb-3"></div><div class="skel w-2/3 h-5 mb-2"></div><div class="skel w-full h-4"></div></div>
+                <div class="editorial-card p-5"><div class="skel w-1/3 h-4 mb-3"></div><div class="skel w-2/3 h-5 mb-2"></div><div class="skel w-full h-4"></div></div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="border-t border-gray-200 mt-16">
+        <div class="max-w-7xl mx-auto px-6 py-10 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div class="flex items-center gap-2">
+                <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="10" width="12" height="10" rx="2"/><circle cx="6.5" cy="8.5" r="1.5"/><circle cx="11.5" cy="8.5" r="1.5"/><path d="M15 14 C 22 14 22 4 17 3"/><line x1="3" y1="14" x2="1" y2="14"/><line x1="3" y1="17" x2="1" y2="17"/></svg>
+                <span class="text-xs text-gray-500">ChipMonk &middot; Silicon Intelligence Hub</span>
+            </div>
+            <div class="flex items-center gap-5 text-[10px] font-mono uppercase tracking-wider text-gray-500">
+                <a href="/blog.rss" class="nav-link">RSS</a>
+                <a href="/blog" class="nav-link">Insights</a>
+                <a href="/briefs" class="nav-link">Dispatches</a>
+                <a href="/companies" class="nav-link">Companies</a>
+                <a href="/about" class="nav-link">Market</a>
+                <a href="/sitemap.xml" class="nav-link">Sitemap</a>
+            </div>
+            <div class="text-[10px] font-mono text-gray-400">&copy; 2026 ChipMonk</div>
+        </div>
+    </footer>
+
+<script>
+(function () {
+    const SYMBOL = (location.pathname.split('/').filter(Boolean).pop() || '').toUpperCase();
+
+    document.getElementById('today-date').textContent =
+        new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    document.getElementById('sym-tag').textContent = SYMBOL;
+    document.title = `${SYMBOL} | ChipMonk`;
+
+    function escapeHtml(s) {
+        return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' })[c] || c);
+    }
+
+    function fmtMoney(n) {
+        if (n == null || !isFinite(n)) return '—';
+        return '$' + (n >= 100 ? n.toFixed(0) : n.toFixed(2));
+    }
+    function fmtPct(n) {
+        if (n == null || !isFinite(n)) return '—';
+        const sign = n >= 0 ? '+' : '';
+        return sign + n.toFixed(2) + '%';
+    }
+    function pctClass(n) {
+        if (n == null || !isFinite(n)) return 'text-gray-500';
+        return n >= 0 ? 'text-emerald-700' : 'text-red-700';
+    }
+    function fmtDate(iso) {
+        if (!iso) return '';
+        try {
+            const d = new Date(iso.includes('T') ? iso : iso.replace(' ', 'T') + 'Z');
+            return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        } catch { return iso; }
+    }
+
+    function sectorPill(sector) {
+        if (!sector) return '';
+        const cls = {
+            ai: 'bg-blue-50 text-blue-700',
+            chip: 'bg-amber-50 text-amber-700',
+            semiconductor: 'bg-emerald-50 text-emerald-700',
+            'ai-infra': 'bg-purple-50 text-purple-700',
+        }[sector] || 'bg-gray-100 text-gray-700';
+        const label = sector === 'ai-infra' ? 'AI INFRA' : sector;
+        return `<span class="text-[10px] font-mono uppercase tracking-widest px-2 py-0.5 ${cls}">${escapeHtml(label)}</span>`;
+    }
+
+    function renderHeader(catalog, quote) {
+        const name = (catalog && catalog.name) || (quote && quote.name) || SYMBOL;
+        document.getElementById('company-name').textContent = name;
+        document.title = `${SYMBOL} ${name} | ChipMonk`;
+
+        const meta = document.getElementById('header-meta');
+        const parts = [];
+        if (catalog && catalog.sector) parts.push(sectorPill(catalog.sector));
+        if (catalog && catalog.exchange) parts.push(`<span class="font-mono text-[10px] uppercase tracking-widest text-gray-500">${escapeHtml(catalog.exchange)}</span>`);
+        if (catalog && catalog.website) {
+            const host = catalog.website.replace(/^https?:\/\//, '').replace(/\/$/, '');
+            parts.push(`<a href="${escapeHtml(catalog.website)}" target="_blank" rel="noopener" class="text-xs font-mono uppercase tracking-widest text-blue-700 hover:underline">${escapeHtml(host)} &rarr;</a>`);
+        }
+        meta.innerHTML = parts.join(' ');
+
+        const descEl = document.getElementById('company-desc');
+        if (catalog && catalog.description) descEl.innerHTML = escapeHtml(catalog.description);
+        else descEl.innerHTML = '<span class="italic text-gray-500">No description on file.</span>';
+
+        const tagRow = document.getElementById('tag-row');
+        const tags = (catalog && Array.isArray(catalog.tags)) ? catalog.tags : [];
+        tagRow.innerHTML = tags.slice(0, 12).map(t => `<span class="tag-pill">${escapeHtml(t)}</span>`).join(' ');
+    }
+
+    function renderStats(q) {
+        if (!q) {
+            for (const id of ['stat-price','stat-day','stat-yoy','stat-hi','stat-lo']) {
+                document.getElementById(id).innerHTML = '<span class="text-gray-400">—</span>';
+            }
+            return;
+        }
+        document.getElementById('stat-price').textContent = fmtMoney(q.price);
+        const dayEl = document.getElementById('stat-day');
+        dayEl.innerHTML = `<span class="${pctClass(q.day_pct)}">${fmtPct(q.day_pct)}</span>`;
+        const yoyEl = document.getElementById('stat-yoy');
+        yoyEl.innerHTML = `<span class="${pctClass(q.yoy_pct)}">${fmtPct(q.yoy_pct)}</span>`;
+        document.getElementById('stat-hi').textContent = fmtMoney(q.year_high);
+        document.getElementById('stat-lo').textContent = fmtMoney(q.year_low);
+    }
+
+    function renderSparkline(points) {
+        const host = document.getElementById('spark-host');
+        if (!points || !points.length) {
+            host.innerHTML = '<p class="text-sm italic text-gray-500">Price history unavailable.</p>';
+            return;
+        }
+        const W = 700, H = 140, PAD_X = 6, PAD_Y = 10;
+        const vals = points.map(p => p.c);
+        let min = Math.min(...vals), max = Math.max(...vals);
+        if (min === max) { min -= 1; max += 1; }
+        const minIdx = vals.indexOf(min), maxIdx = vals.indexOf(max);
+        const n = points.length;
+        const xAt = i => PAD_X + (i * (W - 2 * PAD_X)) / Math.max(1, n - 1);
+        const yAt = v => PAD_Y + (1 - (v - min) / (max - min)) * (H - 2 * PAD_Y);
+        const pts = points.map((p, i) => `${xAt(i).toFixed(2)},${yAt(p.c).toFixed(2)}`);
+        const pathD = 'M' + pts.join(' L');
+        const areaD = `M${xAt(0).toFixed(2)},${(H - PAD_Y).toFixed(2)} L` + pts.join(' L') + ` L${xAt(n - 1).toFixed(2)},${(H - PAD_Y).toFixed(2)} Z`;
+        const baselineY = yAt(points[0].c).toFixed(2);
+        const svg = `
+<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:${H}px;display:block;">
+  <defs>
+    <linearGradient id="sparkfill-${SYMBOL}" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0%" stop-color="#2563EB" stop-opacity="0.16"/>
+      <stop offset="100%" stop-color="#2563EB" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <line x1="${PAD_X}" x2="${W - PAD_X}" y1="${baselineY}" y2="${baselineY}" stroke="#E5E7EB" stroke-width="1" stroke-dasharray="3,3"/>
+  <path d="${areaD}" fill="url(#sparkfill-${SYMBOL})" stroke="none"/>
+  <path d="${pathD}" fill="none" stroke="#2563EB" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/>
+  <circle cx="${xAt(maxIdx).toFixed(2)}" cy="${yAt(max).toFixed(2)}" r="3" fill="#059669" stroke="white" stroke-width="1.2"/>
+  <circle cx="${xAt(minIdx).toFixed(2)}" cy="${yAt(min).toFixed(2)}" r="3" fill="#B91C1C" stroke="white" stroke-width="1.2"/>
+</svg>`;
+        host.innerHTML = svg;
+    }
+
+    function renderInsights(rows, catalog) {
+        const list = document.getElementById('insights-list');
+        const count = document.getElementById('insights-count');
+        if (!Array.isArray(rows) || !rows.length) {
+            const cname = (catalog && catalog.name) || SYMBOL;
+            const site = catalog && catalog.website ? catalog.website : null;
+            const siteHost = site ? site.replace(/^https?:\/\//, '').replace(/\/$/, '') : '';
+            const siteLine = site
+                ? `<a href="${escapeHtml(site)}" target="_blank" rel="noopener" class="font-mono text-xs uppercase tracking-widest text-blue-700 hover:underline">${escapeHtml(siteHost)} &rarr;</a>`
+                : '';
+            list.innerHTML = `
+                <article class="editorial-card p-6 bg-gray-50 border-gray-100">
+                    <p class="font-serif text-lg leading-snug mb-3">Primary-source coverage for ${escapeHtml(cname)} is just getting started.</p>
+                    <p class="text-sm text-gray-600 mb-4">ChipMonk's ingestion engine doesn't yet have insights tagged to this company. New material is added daily &mdash; subscribe to the newsletter for the weekly digest.</p>
+                    <div class="flex items-center gap-5">
+                        ${siteLine}
+                        <a href="/#newsletter" class="font-mono text-xs uppercase tracking-widest text-editorial-charcoal hover:underline">Subscribe &rarr;</a>
+                    </div>
+                </article>`;
+            count.textContent = '0 ITEMS';
+            return;
+        }
+        count.textContent = `${rows.length} ${rows.length === 1 ? 'ITEM' : 'ITEMS'}`;
+        list.innerHTML = rows.map(m => {
+            const safeUrl = m.url && /^https?:\/\//i.test(m.url) ? m.url : null;
+            const note = (m.note || '').replace(/\*\*KEY ENTITIES:\*\*[^\n]*/g, '').trim();
+            return `
+                <article class="editorial-card p-5">
+                    <div class="flex items-center justify-between mb-2 gap-3 flex-wrap">
+                        <span class="font-mono text-[10px] uppercase tracking-widest text-red-700">${escapeHtml(m.source_name || 'source')}</span>
+                        <span class="font-mono text-[10px] uppercase tracking-widest text-gray-500">${escapeHtml(fmtDate(m.created_at))}</span>
+                    </div>
+                    <h3 class="font-serif text-lg font-bold leading-snug mb-2">${escapeHtml(m.title || '(untitled)')}</h3>
+                    ${note ? `<p class="snippet text-sm text-gray-600 leading-relaxed mb-3">${escapeHtml(note)}</p>` : ''}
+                    ${safeUrl ? `<a href="${escapeHtml(safeUrl)}" target="_blank" rel="noopener" class="text-[11px] font-mono uppercase tracking-widest text-blue-700 hover:underline">Read source &rarr;</a>` : ''}
+                </article>
+            `;
+        }).join('');
+    }
+
+    async function loadAll() {
+        // Kick off three fetches in parallel.
+        const quotesP = fetch('/api/markets/chip-quotes').then(r => r.ok ? r.json() : null).catch(() => null);
+        const sparkP = fetch(`/api/markets/spark/${SYMBOL}`).then(r => r.ok ? r.json() : null).catch(() => null);
+        const marksP = fetch(`/api/company/${SYMBOL}/marks`).then(r => r.ok ? r.json() : []).catch(() => []);
+        const catalogP = fetch('/api/catalog/companies?limit=50').then(r => r.ok ? r.json() : null).catch(() => null);
+
+        const [quotes, spark, marks, catalog] = await Promise.all([quotesP, sparkP, marksP, catalogP]);
+
+        const q = quotes && quotes.quotes && quotes.quotes[SYMBOL] ? quotes.quotes[SYMBOL] : null;
+        let catalogRow = null;
+        const list = catalog && (Array.isArray(catalog.companies) ? catalog.companies
+            : Array.isArray(catalog.records) ? catalog.records : null);
+        if (list) {
+            catalogRow = list.find(r => (r.symbol || '').toUpperCase() === SYMBOL) || null;
+        }
+
+        renderHeader(catalogRow, q);
+        renderStats(q);
+        renderSparkline(spark && Array.isArray(spark.points) ? spark.points : []);
+        const asof = document.getElementById('spark-asof');
+        if (spark && spark.asOf) {
+            try {
+                asof.textContent = 'as of ' + new Date(spark.asOf).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+            } catch {}
+        }
+        renderInsights(Array.isArray(marks) ? marks : [], catalogRow || { name: (q && q.name) || SYMBOL });
+    }
+
+    loadAll();
+})();
+</script>
+</body>
+</html>
